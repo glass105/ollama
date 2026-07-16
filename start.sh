@@ -19,6 +19,10 @@ OLLAMA_HOST="${OLLAMA_HOST:-0.0.0.0:11434}"
 OPEN_WEBUI_PORT="${OPEN_WEBUI_PORT:-3000}"
 ENABLE_MODEL_PULL="${ENABLE_MODEL_PULL:-true}"
 OPEN_WEBUI_VENV="${OPEN_WEBUI_VENV:-/workspace/open-webui-venv}"
+ENABLE_OPENCLAW="${ENABLE_OPENCLAW:-true}"
+OPENCLAW_GATEWAY_PORT="${OPENCLAW_GATEWAY_PORT:-18789}"
+OPENCLAW_GATEWAY_BIND="${OPENCLAW_GATEWAY_BIND:-loopback}"
+OPENCLAW_GATEWAY_AUTH="${OPENCLAW_GATEWAY_AUTH:-token}"
 
 log() {
   echo "[start] $*"
@@ -90,6 +94,104 @@ ensure_open_webui() {
     log "Python is required to install Open WebUI."
     return 1
   fi
+}
+
+ensure_openclaw() {
+  case "$(printf '%s' "$ENABLE_OPENCLAW" | tr '[:upper:]' '[:lower:]')" in
+    true|1|yes|y) ;;
+    *)
+      log "Skipping OpenClaw install because ENABLE_OPENCLAW=$ENABLE_OPENCLAW."
+      return 1
+      ;;
+  esac
+
+  if command -v openclaw >/dev/null 2>&1; then
+    return 0
+  fi
+
+  log "OpenClaw is not installed. Installing OpenClaw."
+  curl -fsSL https://openclaw.ai/install.sh -o /tmp/openclaw-install.sh
+  bash /tmp/openclaw-install.sh > /tmp/openclaw-install.log 2>&1 || {
+    log "OpenClaw install failed. See /tmp/openclaw-install.log."
+    return 1
+  }
+}
+
+configure_openclaw() {
+  if ! command -v openclaw >/dev/null 2>&1; then
+    return 1
+  fi
+
+  log "Configuring OpenClaw for local Ollama model $OLLAMA_MODEL."
+  cat > /tmp/openclaw-ollama.patch.json <<EOF
+{
+  "models": {
+    "providers": {
+      "ollama": {
+        "baseUrl": "http://127.0.0.1:11434",
+        "apiKey": "ollama-local",
+        "api": "ollama",
+        "timeoutSeconds": 420,
+        "contextWindow": 32768,
+        "maxTokens": 8192,
+        "models": [
+          {
+            "id": "$OLLAMA_MODEL",
+            "name": "$OLLAMA_MODEL",
+            "input": ["text"],
+            "contextWindow": 32768,
+            "maxTokens": 8192,
+            "params": {
+              "num_ctx": 32768,
+              "keep_alive": "15m"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "ollama/$OLLAMA_MODEL"
+      }
+    }
+  }
+}
+EOF
+  openclaw config patch --file /tmp/openclaw-ollama.patch.json > /tmp/openclaw-config.log 2>&1 || {
+    log "OpenClaw config failed. See /tmp/openclaw-config.log."
+    return 1
+  }
+  openclaw models set "ollama/$OLLAMA_MODEL" >> /tmp/openclaw-config.log 2>&1 || true
+}
+
+start_openclaw_gateway() {
+  if ! command -v openclaw >/dev/null 2>&1; then
+    return 1
+  fi
+
+  mkdir -p /tmp/openclaw
+
+  if [ "$OPENCLAW_GATEWAY_AUTH" = "token" ] && [ -z "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
+    if command -v openssl >/dev/null 2>&1; then
+      OPENCLAW_GATEWAY_TOKEN="$(openssl rand -hex 24)"
+    else
+      OPENCLAW_GATEWAY_TOKEN="$(date +%s%N)"
+    fi
+    export OPENCLAW_GATEWAY_TOKEN
+    printf '%s\n' "$OPENCLAW_GATEWAY_TOKEN" > /tmp/openclaw/gateway-token
+    chmod 600 /tmp/openclaw/gateway-token
+  fi
+
+  log "Starting OpenClaw gateway on $OPENCLAW_GATEWAY_BIND:$OPENCLAW_GATEWAY_PORT with auth=$OPENCLAW_GATEWAY_AUTH."
+  nohup openclaw gateway run \
+    --bind "$OPENCLAW_GATEWAY_BIND" \
+    --port "$OPENCLAW_GATEWAY_PORT" \
+    --auth "$OPENCLAW_GATEWAY_AUTH" \
+    --token "${OPENCLAW_GATEWAY_TOKEN:-}" \
+    --allow-unconfigured \
+    > /tmp/openclaw/gateway.log 2>&1 &
 }
 
 wait_for_ollama() {
@@ -190,6 +292,12 @@ else
   log "Open WebUI install failed. See /tmp/open-webui-install.log. Continuing with Ollama, SSH, and memory sync."
 fi
 start_autosync
+if ensure_openclaw; then
+  configure_openclaw || true
+  start_openclaw_gateway || true
+else
+  log "OpenClaw is not running. Continuing without OpenClaw gateway."
+fi
 print_details
 
 wait
