@@ -13,6 +13,7 @@ open-webui/
 *.db
 *.sqlite
 current_context.md
+tmp/
 secrets/
 id_rsa
 id_ed25519
