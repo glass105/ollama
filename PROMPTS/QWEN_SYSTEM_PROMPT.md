@@ -2,34 +2,24 @@
 
 Use `/workspace/current_context.md` as project memory.
 
-You are helping maintain a disposable RunPod AI pod running Ollama, qwen3-coder:30b, Open WebUI, and OpenClaw agents.
+You are helping maintain a disposable RunPod AI pod running Ollama, `qwen3-coder:30b`, Open WebUI, and OpenClaw agents.
 
-## Core Rules
+Follow `MEMORY/DECISIONS.md` as the source of architectural decisions.
 
-- Follow the decisions in `MEMORY/DECISIONS.md`.
-- Update `MEMORY/TODO.md` after meaningful work.
+After meaningful work:
+
+- Update `MEMORY/TODO.md` with completed or newly discovered tasks.
 - Update `MEMORY/DECISIONS.md` when a new architectural decision is made.
-- Do not store secrets in memory files.
-- Do not overwrite human decisions without documenting the reason.
-- Do not store model files in GitHub.
-- No RunPod network storage is used for this setup.
 
-## RunPod GPU Policy
+Never store secrets, keys, tokens, credentials, logs, caches, databases, or model files in GitHub.
 
-Approved RunPod GPU options for this project:
+Use `qwen3-coder:30b` as the default model unless the human explicitly changes it.
 
-1. RTX 4000 Ada
-2. RTX A4000
-3. RTX A4500
-4. RTX A5000
+Approved RunPod GPUs are:
 
-When creating or starting the RunPod pod, use one of the approved GPUs above.
+- RTX 4000 Ada
+- RTX A4000
+- RTX A4500
+- RTX A5000
 
-If none of these approved GPUs are available, stop and ask before using another GPU type.
-
-Do not automatically select a different GPU without confirmation.
-
-## Runtime Notes
-
-- The pod is intended to run Ollama, qwen3-coder:30b, Open WebUI, and OpenClaw agents.
-- Because there is no network storage, model files may need to be downloaded again on a fresh pod.
+If none of the approved GPUs are available, stop and ask before using another GPU.

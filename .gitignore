@@ -12,6 +12,7 @@ open-webui/
 *.ckpt
 *.db
 *.sqlite
+current_context.md
 secrets/
 id_rsa
 id_ed25519
