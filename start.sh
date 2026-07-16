@@ -18,6 +18,7 @@ OLLAMA_MODEL="${OLLAMA_MODEL:-qwen3-coder:30b}"
 OLLAMA_HOST="${OLLAMA_HOST:-0.0.0.0:11434}"
 OPEN_WEBUI_PORT="${OPEN_WEBUI_PORT:-3000}"
 ENABLE_MODEL_PULL="${ENABLE_MODEL_PULL:-true}"
+OPEN_WEBUI_VENV="${OPEN_WEBUI_VENV:-/workspace/open-webui-venv}"
 
 log() {
   echo "[start] $*"
@@ -72,20 +73,22 @@ ensure_ollama() {
 }
 
 ensure_open_webui() {
-  if command -v open-webui >/dev/null 2>&1; then
+  if [ -x "$OPEN_WEBUI_VENV/bin/open-webui" ]; then
     return 0
   fi
 
-  log "Open WebUI is not installed. Installing with pip."
+  log "Open WebUI is not installed in $OPEN_WEBUI_VENV. Installing with pip."
   if command -v python3 >/dev/null 2>&1; then
-    python3 -m pip install --upgrade pip
-    python3 -m pip install --upgrade open-webui
+    python3 -m venv "$OPEN_WEBUI_VENV"
+    "$OPEN_WEBUI_VENV/bin/python" -m pip install --upgrade pip > /tmp/open-webui-install.log 2>&1
+    "$OPEN_WEBUI_VENV/bin/python" -m pip install --no-cache-dir --upgrade open-webui >> /tmp/open-webui-install.log 2>&1
   elif command -v python >/dev/null 2>&1; then
-    python -m pip install --upgrade pip
-    python -m pip install --upgrade open-webui
+    python -m venv "$OPEN_WEBUI_VENV"
+    "$OPEN_WEBUI_VENV/bin/python" -m pip install --upgrade pip > /tmp/open-webui-install.log 2>&1
+    "$OPEN_WEBUI_VENV/bin/python" -m pip install --no-cache-dir --upgrade open-webui >> /tmp/open-webui-install.log 2>&1
   else
     log "Python is required to install Open WebUI."
-    exit 1
+    return 1
   fi
 }
 
@@ -127,7 +130,7 @@ start_open_webui() {
   export WEBUI_AUTH="${WEBUI_AUTH:-True}"
   export DATA_DIR="${DATA_DIR:-/workspace/open-webui}"
   mkdir -p "$DATA_DIR"
-  nohup open-webui serve --host 0.0.0.0 --port "$OPEN_WEBUI_PORT" > /tmp/open-webui.log 2>&1 &
+  nohup "$OPEN_WEBUI_VENV/bin/open-webui" serve --host 0.0.0.0 --port "$OPEN_WEBUI_PORT" > /tmp/open-webui.log 2>&1 &
 }
 
 start_autosync() {
@@ -181,8 +184,11 @@ ensure_ollama
 start_ollama
 wait_for_ollama
 pull_model
-ensure_open_webui
-start_open_webui
+if ensure_open_webui; then
+  start_open_webui
+else
+  log "Open WebUI install failed. See /tmp/open-webui-install.log. Continuing with Ollama, SSH, and memory sync."
+fi
 start_autosync
 print_details
 
