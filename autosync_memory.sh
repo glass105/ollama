@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Auto-sync Markdown memory files to GitHub on a timer and during graceful shutdown.
+# Auto-sync lightweight project memory/reference files to GitHub on a timer
+# and during graceful shutdown.
 # Intended for a disposable RunPod pod where GitHub is the long-term memory store.
 
 MEMORY_DIR="${MEMORY_DIR:-/workspace/ollama-memory}"
@@ -19,7 +20,7 @@ sync_memory() {
 
   cd "$MEMORY_DIR"
 
-  log "Syncing Markdown memory to GitHub..."
+  log "Syncing memory, PDFs, and images to GitHub..."
 
   # Set a safe default git identity if the container does not already have one.
   git config user.name >/dev/null 2>&1 || git config user.name "runpod-memory-bot"
@@ -31,24 +32,26 @@ sync_memory() {
     return 1
   fi
 
-  # Only add lightweight Markdown memory/prompt/documentation files.
+  # Only add lightweight project memory/reference files.
   # This avoids accidentally committing models, databases, logs, caches, or secrets.
-  git add README.md MEMORY/*.md PROMPTS/*.md 2>/dev/null || true
+  git add README.md MEMORY/*.md PROMPTS/*.md PDFS/*.pdf PDFS/*.md \
+    IMAGES/*.png IMAGES/*.jpg IMAGES/*.jpeg IMAGES/*.webp IMAGES/*.gif IMAGES/*.svg IMAGES/*.md \
+    2>/dev/null || true
 
   if git diff --cached --quiet; then
-    log "No Markdown changes to commit."
+    log "No memory, PDF, or image changes to commit."
     return 0
   fi
 
   timestamp="$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-  git commit -m "Update memory - $timestamp"
+  git commit -m "Update memory assets - $timestamp"
 
   if ! git push; then
     log "Warning: git push failed. Check GitHub authentication."
     return 1
   fi
 
-  log "Memory synced successfully."
+  log "Memory assets synced successfully."
 }
 
 shutdown_sync() {
