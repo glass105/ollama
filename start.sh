@@ -23,6 +23,8 @@ ENABLE_OPENCLAW="${ENABLE_OPENCLAW:-true}"
 OPENCLAW_GATEWAY_PORT="${OPENCLAW_GATEWAY_PORT:-18789}"
 OPENCLAW_GATEWAY_BIND="${OPENCLAW_GATEWAY_BIND:-loopback}"
 OPENCLAW_GATEWAY_AUTH="${OPENCLAW_GATEWAY_AUTH:-token}"
+OPENCLAW_ALLOWED_ORIGINS="${OPENCLAW_ALLOWED_ORIGINS:-}"
+OPENCLAW_ALLOW_HOST_HEADER_ORIGIN_FALLBACK="${OPENCLAW_ALLOW_HOST_HEADER_ORIGIN_FALLBACK:-false}"
 
 log() {
   echo "[start] $*"
@@ -123,8 +125,29 @@ configure_openclaw() {
   fi
 
   log "Configuring OpenClaw for local Ollama model $OLLAMA_MODEL."
+  local allowed_origins_json="[]"
+  if [ -n "$OPENCLAW_ALLOWED_ORIGINS" ]; then
+    allowed_origins_json="$(
+      printf '%s' "$OPENCLAW_ALLOWED_ORIGINS" | "$(
+        command -v python3 >/dev/null 2>&1 && printf python3 || printf python
+      )" -c 'import json,sys; print(json.dumps([x.strip() for x in sys.stdin.read().split(",") if x.strip()]))'
+    )"
+  fi
+
   cat > /tmp/openclaw-ollama.patch.json <<EOF
 {
+  "gateway": {
+    "mode": "local",
+    "bind": "$OPENCLAW_GATEWAY_BIND",
+    "port": $OPENCLAW_GATEWAY_PORT,
+    "auth": {
+      "mode": "$OPENCLAW_GATEWAY_AUTH"
+    },
+    "controlUi": {
+      "allowedOrigins": $allowed_origins_json,
+      "dangerouslyAllowHostHeaderOriginFallback": $OPENCLAW_ALLOW_HOST_HEADER_ORIGIN_FALLBACK
+    }
+  },
   "models": {
     "providers": {
       "ollama": {
@@ -184,13 +207,18 @@ start_openclaw_gateway() {
     chmod 600 /tmp/openclaw/gateway-token
   fi
 
+  if [ -n "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
+    printf '%s\n' "$OPENCLAW_GATEWAY_TOKEN" > /tmp/openclaw/gateway-token
+    chmod 600 /tmp/openclaw/gateway-token
+  fi
+
   log "Starting OpenClaw gateway on $OPENCLAW_GATEWAY_BIND:$OPENCLAW_GATEWAY_PORT with auth=$OPENCLAW_GATEWAY_AUTH."
-  nohup openclaw gateway run \
+  OPENCLAW_GATEWAY_TOKEN="${OPENCLAW_GATEWAY_TOKEN:-}" nohup openclaw gateway \
     --bind "$OPENCLAW_GATEWAY_BIND" \
     --port "$OPENCLAW_GATEWAY_PORT" \
     --auth "$OPENCLAW_GATEWAY_AUTH" \
-    --token "${OPENCLAW_GATEWAY_TOKEN:-}" \
     --allow-unconfigured \
+    run \
     > /tmp/openclaw/gateway.log 2>&1 &
 }
 
