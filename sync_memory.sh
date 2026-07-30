@@ -33,6 +33,7 @@ git pull --rebase origin "$GITHUB_BRANCH"
 log "Adding allowed memory/config assets only."
 git add README.md \
   MEMORY/*.md \
+  MEMORY/*.MD \
   PROMPTS/*.md \
   PDFS/*.md \
   PDFS/*.pdf \

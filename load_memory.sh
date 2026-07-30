@@ -40,6 +40,7 @@ append_file() {
 }
 
 append_file "MEMORY/PROJECT_CONTEXT.md"
+append_file "MEMORY/initalInfo.MD"
 append_file "MEMORY/TODO.md"
 append_file "MEMORY/DECISIONS.md"
 append_file "MEMORY/OPENCLAW.md"
