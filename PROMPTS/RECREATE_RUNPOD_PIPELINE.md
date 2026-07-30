@@ -34,6 +34,7 @@ Pipeline:
 3. Verify scripts:
    - start.sh
    - load_memory.sh
+   - ask_with_memory.sh
    - sync_memory.sh
    - autosync_memory.sh
 4. Ensure memory loads locally with load_memory.sh.
@@ -88,6 +89,7 @@ Pipeline:
     - Open WebUI responds on localhost:3000
     - OpenClaw gateway responds on localhost:18789
     - OpenClaw default model is ollama/qwen3-coder:30b
+    - `bash /workspace/ollama-memory/ask_with_memory.sh "What is this pod setup?"` answers using the Markdown memory
 11. Expose:
     - Open WebUI:
       https://<POD_ID>-3000.proxy.runpod.net/

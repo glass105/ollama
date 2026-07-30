@@ -102,6 +102,13 @@ http://localhost:11434
 
 Avoid exposing Ollama directly to the public internet.
 
+Ollama does not automatically read `/workspace/current_context.md`. The memory file must be included in a prompt, system prompt, Open WebUI model/system configuration, or agent/tool layer. For direct command-line use:
+
+```bash
+cd /workspace/ollama-memory
+bash ask_with_memory.sh "Summarize the current project setup."
+```
+
 ## OpenClaw Local PC Access
 
 Create an SSH tunnel from the local PC:
@@ -125,6 +132,8 @@ For OpenClaw agents running inside the same pod:
 OLLAMA_BASE_URL=http://localhost:11434
 MODEL=qwen3-coder:30b
 ```
+
+OpenClaw is configured to use `ollama/qwen3-coder:30b`, but agents still need to be instructed to use `/workspace/current_context.md` when project memory matters.
 
 ## Manual Sync
 
