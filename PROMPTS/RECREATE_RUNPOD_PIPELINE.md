@@ -65,6 +65,7 @@ Pipeline:
    - COMBINED_CONTEXT=/workspace/current_context.md
    - OLLAMA_MODEL=qwen3-coder:30b
    - OLLAMA_MEMORY_MODEL=qwen3-coder-memory:30b
+   - OPEN_WEBUI_MEMORY_PROXY_PORT=11435
    - OPEN_WEBUI_MEMORY_MODEL=qwen3-coder-memory-webui:30b
    - OLLAMA_HOST=0.0.0.0:11434
    - OPEN_WEBUI_PORT=3000
@@ -91,6 +92,8 @@ Pipeline:
     - ollama API responds at localhost:11434
     - ollama list includes qwen3-coder:30b
     - ollama list includes qwen3-coder-memory:30b
+    - Open WebUI memory proxy responds on localhost:11435
+    - Open WebUI uses the memory proxy URL http://localhost:11435 for Ollama
     - Open WebUI responds on localhost:3000
     - Open WebUI model database includes qwen3-coder-memory-webui:30b
     - Open WebUI memory chats use qwen3-coder-memory-webui:30b, not the raw qwen3-coder-memory:30b Ollama model

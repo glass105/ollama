@@ -101,7 +101,7 @@ For chats that should remember the Markdown files, select:
 qwen3-coder-memory-webui:30b
 ```
 
-This is an Open WebUI workspace model that wraps `qwen3-coder:30b` and injects `/workspace/current_context.md` as the model system prompt. The raw Ollama model `qwen3-coder-memory:30b` works from direct Ollama calls, but Open WebUI may send its own system/profile prompt and bypass the Ollama-level memory. Use the `-webui` model in Open WebUI.
+This is an Open WebUI workspace model that wraps `qwen3-coder-memory:30b`. Open WebUI is also pointed at a pod-local memory proxy on `http://localhost:11435`; the proxy forwards to Ollama on `http://localhost:11434` and injects `/workspace/current_context.md` into chat/generate requests. The proxy is pod-local only and does not store runtime state.
 
 ## Ollama API
 
@@ -127,6 +127,18 @@ qwen3-coder-memory-webui:30b
 ```
 
 That Open WebUI wrapper is created on startup from `qwen3-coder:30b` plus `/workspace/current_context.md` as its system prompt.
+
+If Open WebUI answers as though it cannot see project memory, verify that its Ollama base URL is the memory proxy:
+
+```text
+http://localhost:11435
+```
+
+The proxy log is:
+
+```text
+/tmp/open-webui-memory-proxy.log
+```
 
 ## OpenClaw Local PC Access
 

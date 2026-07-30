@@ -1,6 +1,7 @@
 .env
 *.log
 .cache/
+__pycache__/
 ollama/
 models/
 open-webui/

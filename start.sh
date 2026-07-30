@@ -18,6 +18,7 @@ OLLAMA_MODEL="${OLLAMA_MODEL:-qwen3-coder:30b}"
 OLLAMA_MEMORY_MODEL="${OLLAMA_MEMORY_MODEL:-qwen3-coder-memory:30b}"
 OLLAMA_HOST="${OLLAMA_HOST:-0.0.0.0:11434}"
 OPEN_WEBUI_PORT="${OPEN_WEBUI_PORT:-3000}"
+OPEN_WEBUI_MEMORY_PROXY_PORT="${OPEN_WEBUI_MEMORY_PROXY_PORT:-11435}"
 ENABLE_MODEL_PULL="${ENABLE_MODEL_PULL:-true}"
 OPEN_WEBUI_VENV="${OPEN_WEBUI_VENV:-/workspace/open-webui-venv}"
 ENABLE_OPENCLAW="${ENABLE_OPENCLAW:-true}"
@@ -264,11 +265,23 @@ create_memory_model() {
 
 start_open_webui() {
   log "Starting Open WebUI on port $OPEN_WEBUI_PORT."
-  export OLLAMA_BASE_URL="http://localhost:11434"
+  export OLLAMA_BASE_URL="http://localhost:$OPEN_WEBUI_MEMORY_PROXY_PORT"
   export WEBUI_AUTH="${WEBUI_AUTH:-True}"
   export DATA_DIR="${DATA_DIR:-/workspace/open-webui}"
   mkdir -p "$DATA_DIR"
   nohup "$OPEN_WEBUI_VENV/bin/open-webui" serve --host 0.0.0.0 --port "$OPEN_WEBUI_PORT" > /tmp/open-webui.log 2>&1 &
+}
+
+start_open_webui_memory_proxy() {
+  if [ ! -f "$MEMORY_DIR/open_webui_memory_proxy.py" ]; then
+    return 0
+  fi
+
+  log "Starting Open WebUI memory proxy on localhost:$OPEN_WEBUI_MEMORY_PROXY_PORT."
+  COMBINED_CONTEXT="$COMBINED_CONTEXT" \
+    OPEN_WEBUI_MEMORY_PROXY_PORT="$OPEN_WEBUI_MEMORY_PROXY_PORT" \
+    OLLAMA_UPSTREAM_URL="http://127.0.0.1:11434" \
+    nohup python3 "$MEMORY_DIR/open_webui_memory_proxy.py" > /tmp/open-webui-memory-proxy.log 2>&1 &
 }
 
 configure_open_webui_memory_model() {
@@ -280,6 +293,22 @@ configure_open_webui_memory_model() {
   for _ in $(seq 1 60); do
     if [ -f "${DATA_DIR:-/workspace/open-webui}/webui.db" ]; then
       "$MEMORY_DIR/configure_open_webui_memory_model.sh" || log "Open WebUI memory model configuration failed. Create the first admin account, then rerun configure_open_webui_memory_model.sh."
+      python3 - "${DATA_DIR:-/workspace/open-webui}/webui.db" "$OPEN_WEBUI_MEMORY_PROXY_PORT" <<'PY' || true
+import json
+import sqlite3
+import sys
+import time
+
+db_path, port = sys.argv[1:3]
+con = sqlite3.connect(db_path)
+now = int(time.time())
+con.execute(
+    "insert into config (key, value, updated_at) values (?, ?, ?) "
+    "on conflict(key) do update set value = excluded.value, updated_at = excluded.updated_at",
+    ("ollama.base_urls", json.dumps([f"http://localhost:{port}"]), now),
+)
+con.commit()
+PY
       return 0
     fi
     sleep 1
@@ -341,6 +370,7 @@ fi
 ensure_ollama
 start_ollama
 wait_for_ollama
+start_open_webui_memory_proxy
 pull_model
 create_memory_model
 if ensure_open_webui; then
