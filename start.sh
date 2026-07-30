@@ -177,7 +177,7 @@ configure_openclaw() {
   "agents": {
     "defaults": {
       "compaction": {
-        "reserveTokensFloor": 30000
+        "reserveTokensFloor": 24000
       },
       "model": {
         "primary": "ollama/$OLLAMA_MODEL"
