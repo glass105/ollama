@@ -271,6 +271,23 @@ start_open_webui() {
   nohup "$OPEN_WEBUI_VENV/bin/open-webui" serve --host 0.0.0.0 --port "$OPEN_WEBUI_PORT" > /tmp/open-webui.log 2>&1 &
 }
 
+configure_open_webui_memory_model() {
+  if [ ! -x "$MEMORY_DIR/configure_open_webui_memory_model.sh" ]; then
+    return 0
+  fi
+
+  log "Configuring Open WebUI memory model."
+  for _ in $(seq 1 60); do
+    if [ -f "${DATA_DIR:-/workspace/open-webui}/webui.db" ]; then
+      "$MEMORY_DIR/configure_open_webui_memory_model.sh" || log "Open WebUI memory model configuration failed. Create the first admin account, then rerun configure_open_webui_memory_model.sh."
+      return 0
+    fi
+    sleep 1
+  done
+
+  log "Open WebUI database was not ready; skipping memory model configuration."
+}
+
 start_autosync() {
   log "Starting memory autosync."
   nohup "$MEMORY_DIR/autosync_memory.sh" > /tmp/autosync-memory.log 2>&1 &
@@ -317,6 +334,9 @@ EOF
 install_packages
 ensure_repo
 chmod +x "$MEMORY_DIR/start.sh" "$MEMORY_DIR/load_memory.sh" "$MEMORY_DIR/sync_memory.sh" "$MEMORY_DIR/autosync_memory.sh"
+if [ -f "$MEMORY_DIR/configure_open_webui_memory_model.sh" ]; then
+  chmod +x "$MEMORY_DIR/configure_open_webui_memory_model.sh"
+fi
 "$MEMORY_DIR/load_memory.sh"
 ensure_ollama
 start_ollama
@@ -325,6 +345,7 @@ pull_model
 create_memory_model
 if ensure_open_webui; then
   start_open_webui
+  configure_open_webui_memory_model
 else
   log "Open WebUI install failed. See /tmp/open-webui-install.log. Continuing with Ollama, SSH, and memory sync."
 fi

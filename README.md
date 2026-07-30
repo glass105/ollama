@@ -65,7 +65,7 @@ cd /workspace && \
 git clone https://github.com/glass105/ollama.git ollama-memory || true && \
 cd /workspace/ollama-memory && \
 git pull && \
-chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh && \
+chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh configure_open_webui_memory_model.sh && \
 bash start.sh
 ```
 
@@ -78,9 +78,12 @@ The startup script:
 5. Starts Ollama.
 6. Waits for Ollama on port `11434`.
 7. Pulls `qwen3-coder:30b` when enabled.
-8. Starts Open WebUI on port `3000`.
-9. Starts memory autosync.
-10. Prints connection details.
+8. Creates the Ollama memory model `qwen3-coder-memory:30b`.
+9. Starts Open WebUI on port `3000`.
+10. Creates the Open WebUI memory wrapper `qwen3-coder-memory-webui:30b` after the WebUI database exists.
+11. Starts memory autosync.
+12. Starts OpenClaw if enabled.
+13. Prints connection details.
 
 ## Open WebUI Access
 
@@ -91,6 +94,14 @@ http://<RUNPOD_HOST_OR_PROXY>:3000
 ```
 
 Keep Open WebUI protected. Do not expose it broadly without an access control layer.
+
+For chats that should remember the Markdown files, select:
+
+```text
+qwen3-coder-memory-webui:30b
+```
+
+This is an Open WebUI workspace model that wraps `qwen3-coder:30b` and injects `/workspace/current_context.md` as the model system prompt. The raw Ollama model `qwen3-coder-memory:30b` works from direct Ollama calls, but Open WebUI may send its own system/profile prompt and bypass the Ollama-level memory. Use the `-webui` model in Open WebUI.
 
 ## Ollama API
 
@@ -112,10 +123,10 @@ bash ask_with_memory.sh "Summarize the current project setup."
 For Open WebUI, select the generated memory-aware model:
 
 ```text
-qwen3-coder-memory:30b
+qwen3-coder-memory-webui:30b
 ```
 
-That model is created on startup from `qwen3-coder:30b` plus `/workspace/current_context.md` as its system prompt.
+That Open WebUI wrapper is created on startup from `qwen3-coder:30b` plus `/workspace/current_context.md` as its system prompt.
 
 ## OpenClaw Local PC Access
 

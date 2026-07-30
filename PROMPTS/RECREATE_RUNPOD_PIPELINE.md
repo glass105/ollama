@@ -36,6 +36,7 @@ Pipeline:
    - load_memory.sh
    - ask_with_memory.sh
    - create_memory_model.sh
+   - configure_open_webui_memory_model.sh
    - sync_memory.sh
    - autosync_memory.sh
 4. Ensure memory loads locally with load_memory.sh.
@@ -64,6 +65,7 @@ Pipeline:
    - COMBINED_CONTEXT=/workspace/current_context.md
    - OLLAMA_MODEL=qwen3-coder:30b
    - OLLAMA_MEMORY_MODEL=qwen3-coder-memory:30b
+   - OPEN_WEBUI_MEMORY_MODEL=qwen3-coder-memory-webui:30b
    - OLLAMA_HOST=0.0.0.0:11434
    - OPEN_WEBUI_PORT=3000
    - ENABLE_MODEL_PULL=true
@@ -78,7 +80,7 @@ Pipeline:
    git clone https://github.com/glass105/ollama.git ollama-memory || true && \
    cd /workspace/ollama-memory && \
    git pull && \
-   chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh && \
+   chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh configure_open_webui_memory_model.sh && \
    bash start.sh
 8. If SSH is needed, preserve RunPod default startup by launching /start.sh in the background before the repo startup command.
 9. Poll the pod until public IP and SSH port are available.
@@ -90,6 +92,8 @@ Pipeline:
     - ollama list includes qwen3-coder:30b
     - ollama list includes qwen3-coder-memory:30b
     - Open WebUI responds on localhost:3000
+    - Open WebUI model database includes qwen3-coder-memory-webui:30b
+    - Open WebUI memory chats use qwen3-coder-memory-webui:30b, not the raw qwen3-coder-memory:30b Ollama model
     - OpenClaw gateway responds on localhost:18789
     - OpenClaw default model is ollama/qwen3-coder:30b
     - `bash /workspace/ollama-memory/ask_with_memory.sh "What is this pod setup?"` answers using the Markdown memory
