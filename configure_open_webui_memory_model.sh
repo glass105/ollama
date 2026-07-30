@@ -13,6 +13,7 @@ fi
 MEMORY_DIR="${MEMORY_DIR:-$SCRIPT_DIR}"
 COMBINED_CONTEXT="${COMBINED_CONTEXT:-/workspace/current_context.md}"
 OLLAMA_MODEL="${OLLAMA_MODEL:-qwen3-coder:30b}"
+OLLAMA_MEMORY_MODEL="${OLLAMA_MEMORY_MODEL:-qwen3-coder-memory:30b}"
 OPEN_WEBUI_DATA_DIR="${DATA_DIR:-/workspace/open-webui}"
 OPEN_WEBUI_MEMORY_MODEL="${OPEN_WEBUI_MEMORY_MODEL:-qwen3-coder-memory-webui:30b}"
 OPEN_WEBUI_MEMORY_MODEL_NAME="${OPEN_WEBUI_MEMORY_MODEL_NAME:-Qwen3 Coder Memory}"
@@ -26,7 +27,7 @@ if ! command -v "$python_bin" >/dev/null 2>&1; then
   python_bin="python"
 fi
 
-"$python_bin" - "$OPEN_WEBUI_DATA_DIR/webui.db" "$COMBINED_CONTEXT" "$OLLAMA_MODEL" "$OPEN_WEBUI_MEMORY_MODEL" "$OPEN_WEBUI_MEMORY_MODEL_NAME" <<'PY'
+"$python_bin" - "$OPEN_WEBUI_DATA_DIR/webui.db" "$COMBINED_CONTEXT" "$OLLAMA_MEMORY_MODEL" "$OPEN_WEBUI_MEMORY_MODEL" "$OPEN_WEBUI_MEMORY_MODEL_NAME" <<'PY'
 import json
 import sqlite3
 import sys
@@ -39,9 +40,10 @@ with open(context_path, 'r', encoding='utf-8') as f:
 
 system = f"""You are Qwen running in this disposable RunPod project environment.
 
-Use the following Markdown project memory as your current project context.
-When the user asks what you remember from the MD files, summarize this memory.
-Do not claim you cannot access the memory unless the user asks about files outside this provided context.
+The Markdown files are already provided below inside this system prompt. You are not expected to read the filesystem during the chat.
+When the user asks what you remember from the MD files, summarize the provided Markdown project memory.
+Never answer that you do not have access to the MD files when the question is about the project memory below.
+If asked about MD files, say "From the provided project memory..." and then summarize the relevant points.
 Follow MEMORY/DECISIONS.md and never store secrets, keys, tokens, logs, caches, databases, or model files in GitHub.
 
 {context}
