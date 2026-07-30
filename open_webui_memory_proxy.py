@@ -36,14 +36,33 @@ def inject_memory(payload: dict) -> dict:
     if not memory_prompt.strip():
         return payload
 
+    options = payload.get("options")
+    if not isinstance(options, dict):
+        options = {}
+    options["num_ctx"] = max(int(options.get("num_ctx", 0) or 0), 32768)
+    payload["options"] = options
+
     messages = payload.get("messages")
     if isinstance(messages, list):
-        payload["messages"] = [{"role": "system", "content": memory_prompt}, *messages]
+        if messages and messages[-1].get("role") == "user":
+            latest = dict(messages[-1])
+            latest["content"] = (
+                "Project memory provided for this request:\n"
+                f"{memory_prompt}\n\n"
+                "User request:\n"
+                f"{latest.get('content', '')}"
+            )
+            payload["messages"] = [*messages[:-1], latest]
+        else:
+            payload["messages"] = [
+                *messages,
+                {"role": "user", "content": f"Project memory provided for this request:\n{memory_prompt}"},
+            ]
         return payload
 
     prompt = payload.get("prompt")
     if isinstance(prompt, str):
-        payload["prompt"] = f"{memory_prompt}\n\nUser request:\n{prompt}"
+        payload["prompt"] = f"{prompt}\n\nProject memory provided for this request:\n{memory_prompt}"
 
     return payload
 
