@@ -15,7 +15,6 @@ GITHUB_BRANCH="${GITHUB_BRANCH:-main}"
 MEMORY_DIR="${MEMORY_DIR:-/workspace/ollama-memory}"
 COMBINED_CONTEXT="${COMBINED_CONTEXT:-/workspace/current_context.md}"
 OLLAMA_MODEL="${OLLAMA_MODEL:-qwen3-coder:30b}"
-OLLAMA_MEMORY_MODEL="${OLLAMA_MEMORY_MODEL:-qwen3-coder-memory:30b}"
 OLLAMA_HOST="${OLLAMA_HOST:-0.0.0.0:11434}"
 OPEN_WEBUI_PORT="${OPEN_WEBUI_PORT:-3000}"
 OPEN_WEBUI_MEMORY_PROXY_PORT="${OPEN_WEBUI_MEMORY_PROXY_PORT:-11435}"
@@ -256,13 +255,6 @@ pull_model() {
   esac
 }
 
-create_memory_model() {
-  if [ -x "$MEMORY_DIR/create_memory_model.sh" ]; then
-    log "Creating memory-aware Ollama model $OLLAMA_MEMORY_MODEL."
-    "$MEMORY_DIR/create_memory_model.sh" || log "Memory model creation failed. Continuing with base model."
-  fi
-}
-
 start_open_webui() {
   log "Starting Open WebUI on port $OPEN_WEBUI_PORT."
   export OLLAMA_BASE_URL="http://localhost:$OPEN_WEBUI_MEMORY_PROXY_PORT"
@@ -284,15 +276,10 @@ start_open_webui_memory_proxy() {
     nohup python3 "$MEMORY_DIR/open_webui_memory_proxy.py" > /tmp/open-webui-memory-proxy.log 2>&1 &
 }
 
-configure_open_webui_memory_model() {
-  if [ ! -x "$MEMORY_DIR/configure_open_webui_memory_model.sh" ]; then
-    return 0
-  fi
-
-  log "Configuring Open WebUI memory model."
+configure_open_webui_proxy_url() {
+  log "Configuring Open WebUI to use memory proxy."
   for _ in $(seq 1 60); do
     if [ -f "${DATA_DIR:-/workspace/open-webui}/webui.db" ]; then
-      "$MEMORY_DIR/configure_open_webui_memory_model.sh" || log "Open WebUI memory model configuration failed. Create the first admin account, then rerun configure_open_webui_memory_model.sh."
       python3 - "${DATA_DIR:-/workspace/open-webui}/webui.db" "$OPEN_WEBUI_MEMORY_PROXY_PORT" <<'PY' || true
 import json
 import sqlite3
@@ -314,7 +301,7 @@ PY
     sleep 1
   done
 
-  log "Open WebUI database was not ready; skipping memory model configuration."
+  log "Open WebUI database was not ready; skipping proxy URL configuration."
 }
 
 start_autosync() {
@@ -363,19 +350,15 @@ EOF
 install_packages
 ensure_repo
 chmod +x "$MEMORY_DIR/start.sh" "$MEMORY_DIR/load_memory.sh" "$MEMORY_DIR/sync_memory.sh" "$MEMORY_DIR/autosync_memory.sh"
-if [ -f "$MEMORY_DIR/configure_open_webui_memory_model.sh" ]; then
-  chmod +x "$MEMORY_DIR/configure_open_webui_memory_model.sh"
-fi
 "$MEMORY_DIR/load_memory.sh"
 ensure_ollama
 start_ollama
 wait_for_ollama
 start_open_webui_memory_proxy
 pull_model
-create_memory_model
 if ensure_open_webui; then
   start_open_webui
-  configure_open_webui_memory_model
+  configure_open_webui_proxy_url
 else
   log "Open WebUI install failed. See /tmp/open-webui-install.log. Continuing with Ollama, SSH, and memory sync."
 fi

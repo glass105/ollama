@@ -65,7 +65,7 @@ cd /workspace && \
 git clone https://github.com/glass105/ollama.git ollama-memory || true && \
 cd /workspace/ollama-memory && \
 git pull && \
-chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh configure_open_webui_memory_model.sh && \
+chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh && \
 bash start.sh
 ```
 
@@ -78,9 +78,9 @@ The startup script:
 5. Starts Ollama.
 6. Waits for Ollama on port `11434`.
 7. Pulls `qwen3-coder:30b` when enabled.
-8. Creates the Ollama memory model `qwen3-coder-memory:30b`.
+8. Starts the pod-local Open WebUI memory proxy on port `11435`.
 9. Starts Open WebUI on port `3000`.
-10. Creates the Open WebUI memory wrapper `qwen3-coder-memory-webui:30b` after the WebUI database exists.
+10. Configures Open WebUI to use the memory proxy as its Ollama base URL.
 11. Starts memory autosync.
 12. Starts OpenClaw if enabled.
 13. Prints connection details.
@@ -95,13 +95,7 @@ http://<RUNPOD_HOST_OR_PROXY>:3000
 
 Keep Open WebUI protected. Do not expose it broadly without an access control layer.
 
-For chats that should remember the Markdown files, select:
-
-```text
-qwen3-coder-memory-webui:30b
-```
-
-This is an Open WebUI workspace model that wraps `qwen3-coder-memory:30b`. Open WebUI is also pointed at a pod-local memory proxy on `http://localhost:11435`; the proxy forwards to Ollama on `http://localhost:11434` and injects `/workspace/current_context.md` into chat/generate requests. The proxy is pod-local only and does not store runtime state.
+Open WebUI is pointed at a pod-local memory proxy on `http://localhost:11435`. The proxy forwards to Ollama on `http://localhost:11434` and injects `/workspace/current_context.md` into chat/generate requests. The proxy is pod-local only and does not store runtime state.
 
 ## Ollama API
 
@@ -113,20 +107,14 @@ http://localhost:11434
 
 Avoid exposing Ollama directly to the public internet.
 
-Ollama does not automatically read `/workspace/current_context.md`. The memory file must be included in a prompt, system prompt, Open WebUI model/system configuration, or agent/tool layer. For direct command-line use:
+Ollama does not automatically read `/workspace/current_context.md`. The memory file must be included in a prompt, proxy, system prompt, or agent/tool layer. For direct command-line use:
 
 ```bash
 cd /workspace/ollama-memory
 bash ask_with_memory.sh "Summarize the current project setup."
 ```
 
-For Open WebUI, select the generated memory-aware model:
-
-```text
-qwen3-coder-memory-webui:30b
-```
-
-That Open WebUI wrapper is created on startup from `qwen3-coder:30b` plus `/workspace/current_context.md` as its system prompt.
+For Open WebUI, select `qwen3-coder:30b`. Memory is injected by the pod-local proxy, not by a separate model.
 
 If Open WebUI answers as though it cannot see project memory, verify that its Ollama base URL is the memory proxy:
 
