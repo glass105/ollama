@@ -109,6 +109,14 @@ cd /workspace/ollama-memory
 bash ask_with_memory.sh "Summarize the current project setup."
 ```
 
+For Open WebUI, select the generated memory-aware model:
+
+```text
+qwen3-coder-memory:30b
+```
+
+That model is created on startup from `qwen3-coder:30b` plus `/workspace/current_context.md` as its system prompt.
+
 ## OpenClaw Local PC Access
 
 Create an SSH tunnel from the local PC:

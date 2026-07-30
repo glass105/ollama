@@ -15,6 +15,7 @@ GITHUB_BRANCH="${GITHUB_BRANCH:-main}"
 MEMORY_DIR="${MEMORY_DIR:-/workspace/ollama-memory}"
 COMBINED_CONTEXT="${COMBINED_CONTEXT:-/workspace/current_context.md}"
 OLLAMA_MODEL="${OLLAMA_MODEL:-qwen3-coder:30b}"
+OLLAMA_MEMORY_MODEL="${OLLAMA_MEMORY_MODEL:-qwen3-coder-memory:30b}"
 OLLAMA_HOST="${OLLAMA_HOST:-0.0.0.0:11434}"
 OPEN_WEBUI_PORT="${OPEN_WEBUI_PORT:-3000}"
 ENABLE_MODEL_PULL="${ENABLE_MODEL_PULL:-true}"
@@ -254,6 +255,13 @@ pull_model() {
   esac
 }
 
+create_memory_model() {
+  if [ -x "$MEMORY_DIR/create_memory_model.sh" ]; then
+    log "Creating memory-aware Ollama model $OLLAMA_MEMORY_MODEL."
+    "$MEMORY_DIR/create_memory_model.sh" || log "Memory model creation failed. Continuing with base model."
+  fi
+}
+
 start_open_webui() {
   log "Starting Open WebUI on port $OPEN_WEBUI_PORT."
   export OLLAMA_BASE_URL="http://localhost:11434"
@@ -314,6 +322,7 @@ ensure_ollama
 start_ollama
 wait_for_ollama
 pull_model
+create_memory_model
 if ensure_open_webui; then
   start_open_webui
 else

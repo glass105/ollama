@@ -35,6 +35,7 @@ Pipeline:
    - start.sh
    - load_memory.sh
    - ask_with_memory.sh
+   - create_memory_model.sh
    - sync_memory.sh
    - autosync_memory.sh
 4. Ensure memory loads locally with load_memory.sh.
@@ -62,6 +63,7 @@ Pipeline:
    - MEMORY_DIR=/workspace/ollama-memory
    - COMBINED_CONTEXT=/workspace/current_context.md
    - OLLAMA_MODEL=qwen3-coder:30b
+   - OLLAMA_MEMORY_MODEL=qwen3-coder-memory:30b
    - OLLAMA_HOST=0.0.0.0:11434
    - OPEN_WEBUI_PORT=3000
    - ENABLE_MODEL_PULL=true
@@ -86,6 +88,7 @@ Pipeline:
     - /workspace/current_context.md exists
     - ollama API responds at localhost:11434
     - ollama list includes qwen3-coder:30b
+    - ollama list includes qwen3-coder-memory:30b
     - Open WebUI responds on localhost:3000
     - OpenClaw gateway responds on localhost:18789
     - OpenClaw default model is ollama/qwen3-coder:30b
