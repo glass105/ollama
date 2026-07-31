@@ -81,9 +81,10 @@ The startup script:
 8. Starts the pod-local Open WebUI memory proxy on port `11435`.
 9. Starts Open WebUI on port `3000`.
 10. Configures Open WebUI to use the memory proxy as its Ollama base URL.
-11. Starts memory autosync.
-12. Starts OpenClaw if enabled.
-13. Prints connection details.
+11. Optionally bootstraps an Open WebUI admin.
+12. Starts memory autosync.
+13. Starts OpenClaw if enabled.
+14. Prints connection details.
 
 ## Open WebUI Access
 
@@ -96,6 +97,22 @@ http://<RUNPOD_HOST_OR_PROXY>:3000
 Keep Open WebUI protected. Do not expose it broadly without an access control layer.
 
 Open WebUI is pointed at a pod-local memory proxy on `http://localhost:11435`. The proxy forwards to Ollama on `http://localhost:11434` and injects `/workspace/current_context.md` into chat/generate requests. The proxy is pod-local only and does not store runtime state.
+
+To bootstrap an administrator on each fresh pod, set:
+
+```bash
+OPEN_WEBUI_BOOTSTRAP_ADMIN=true
+OPEN_WEBUI_ADMIN_EMAIL=joercoleman@mail.com
+OPEN_WEBUI_ADMIN_NAME="Joseph Coleman"
+```
+
+If `OPEN_WEBUI_ADMIN_PASSWORD` is not set, startup generates a pod-local password and stores it at:
+
+```text
+/tmp/open-webui-admin-password
+```
+
+That password file is disposable pod runtime state and must not be committed to GitHub.
 
 ## Ollama API
 

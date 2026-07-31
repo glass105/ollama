@@ -66,6 +66,9 @@ Pipeline:
    - OPEN_WEBUI_MEMORY_PROXY_PORT=11435
    - OLLAMA_HOST=0.0.0.0:11434
    - OPEN_WEBUI_PORT=3000
+   - OPEN_WEBUI_BOOTSTRAP_ADMIN=true
+   - OPEN_WEBUI_ADMIN_EMAIL=joercoleman@mail.com
+   - OPEN_WEBUI_ADMIN_NAME=Joseph Coleman
    - ENABLE_MODEL_PULL=true
    - SYNC_INTERVAL_SECONDS=1800
    - ENABLE_OPENCLAW=true
@@ -92,6 +95,8 @@ Pipeline:
     - Open WebUI uses the memory proxy URL http://localhost:11435 for Ollama
     - Open WebUI memory chats use qwen3-coder:30b through the memory proxy
     - Open WebUI responds on localhost:3000
+    - Open WebUI admin exists for joercoleman@mail.com
+    - Open WebUI bootstrap password is saved pod-locally at /tmp/open-webui-admin-password
     - OpenClaw gateway responds on localhost:18789
     - OpenClaw default model is ollama/qwen3-coder:30b
     - `bash /workspace/ollama-memory/ask_with_memory.sh "What is this pod setup?"` answers using the Markdown memory

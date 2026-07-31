@@ -18,6 +18,10 @@ OLLAMA_MODEL="${OLLAMA_MODEL:-qwen3-coder:30b}"
 OLLAMA_HOST="${OLLAMA_HOST:-0.0.0.0:11434}"
 OPEN_WEBUI_PORT="${OPEN_WEBUI_PORT:-3000}"
 OPEN_WEBUI_MEMORY_PROXY_PORT="${OPEN_WEBUI_MEMORY_PROXY_PORT:-11435}"
+OPEN_WEBUI_BOOTSTRAP_ADMIN="${OPEN_WEBUI_BOOTSTRAP_ADMIN:-false}"
+OPEN_WEBUI_ADMIN_EMAIL="${OPEN_WEBUI_ADMIN_EMAIL:-}"
+OPEN_WEBUI_ADMIN_NAME="${OPEN_WEBUI_ADMIN_NAME:-}"
+OPEN_WEBUI_ADMIN_PASSWORD_FILE="${OPEN_WEBUI_ADMIN_PASSWORD_FILE:-/tmp/open-webui-admin-password}"
 ENABLE_MODEL_PULL="${ENABLE_MODEL_PULL:-true}"
 OPEN_WEBUI_VENV="${OPEN_WEBUI_VENV:-/workspace/open-webui-venv}"
 ENABLE_OPENCLAW="${ENABLE_OPENCLAW:-true}"
@@ -307,6 +311,37 @@ PY
   log "Open WebUI database was not ready; skipping proxy URL configuration."
 }
 
+bootstrap_open_webui_admin() {
+  case "$(printf '%s' "$OPEN_WEBUI_BOOTSTRAP_ADMIN" | tr '[:upper:]' '[:lower:]')" in
+    true|1|yes|y|on) ;;
+    *)
+      return 0
+      ;;
+  esac
+
+  if [ ! -f "$MEMORY_DIR/bootstrap_open_webui_admin.py" ]; then
+    log "Open WebUI admin bootstrap script is missing; skipping admin bootstrap."
+    return 0
+  fi
+
+  if [ -z "$OPEN_WEBUI_ADMIN_EMAIL" ]; then
+    log "OPEN_WEBUI_BOOTSTRAP_ADMIN is enabled but OPEN_WEBUI_ADMIN_EMAIL is empty; skipping admin bootstrap."
+    return 0
+  fi
+
+  log "Bootstrapping Open WebUI admin account for $OPEN_WEBUI_ADMIN_EMAIL."
+  DATA_DIR="${DATA_DIR:-/workspace/open-webui}" \
+    OPEN_WEBUI_BOOTSTRAP_ADMIN="$OPEN_WEBUI_BOOTSTRAP_ADMIN" \
+    OPEN_WEBUI_ADMIN_EMAIL="$OPEN_WEBUI_ADMIN_EMAIL" \
+    OPEN_WEBUI_ADMIN_NAME="$OPEN_WEBUI_ADMIN_NAME" \
+    OPEN_WEBUI_ADMIN_PASSWORD="${OPEN_WEBUI_ADMIN_PASSWORD:-}" \
+    OPEN_WEBUI_ADMIN_PASSWORD_FILE="$OPEN_WEBUI_ADMIN_PASSWORD_FILE" \
+    "$OPEN_WEBUI_VENV/bin/python" "$MEMORY_DIR/bootstrap_open_webui_admin.py" || {
+      log "Open WebUI admin bootstrap failed."
+      return 1
+    }
+}
+
 start_autosync() {
   log "Starting memory autosync."
   nohup "$MEMORY_DIR/autosync_memory.sh" > /tmp/autosync-memory.log 2>&1 &
@@ -343,6 +378,10 @@ Logs:
   /tmp/open-webui.log
   /tmp/autosync-memory.log
 
+Open WebUI bootstrap admin:
+  Email: ${OPEN_WEBUI_ADMIN_EMAIL:-disabled}
+  Pod-local password file: ${OPEN_WEBUI_ADMIN_PASSWORD_FILE}
+
 Security:
   Do not expose Ollama publicly without protection. Prefer SSH tunnel, VPN,
   Tailscale, or Cloudflare Tunnel.
@@ -362,6 +401,7 @@ pull_model
 if ensure_open_webui; then
   start_open_webui
   configure_open_webui_proxy_url
+  bootstrap_open_webui_admin || true
 else
   log "Open WebUI install failed. See /tmp/open-webui-install.log. Continuing with Ollama, SSH, and memory sync."
 fi
