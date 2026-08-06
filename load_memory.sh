@@ -44,6 +44,7 @@ append_file "MEMORY/initalInfo.MD"
 append_file "MEMORY/TODO.md"
 append_file "MEMORY/DECISIONS.md"
 append_file "MEMORY/OPENCLAW.md"
+append_file "MEMORY/PDF_REFERENCES.md"
 append_file "MEMORY/SECURITY.md"
 append_file "PROMPTS/QWEN_SYSTEM_PROMPT.md"
 
