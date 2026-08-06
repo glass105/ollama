@@ -4,6 +4,7 @@ The `PDFS/` directory stores reference PDFs that are durable GitHub-backed proje
 
 Available PDFs:
 
+- `PDFS/CMG_CLI_Reference_Guide.pdf` - CMG CLI Reference Guide.
 - `PDFS/CMG_Configuration_Guide_part_1.pdf` - CMG Configuration Guide, pages 1-541.
 - `PDFS/CMG_Configuration_Guide_part_2.pdf` - CMG Configuration Guide, pages 542-1082.
 
