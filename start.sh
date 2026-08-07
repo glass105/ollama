@@ -366,7 +366,7 @@ db_path, embedding_model, batch_size, concurrent_requests = sys.argv[1:5]
 updates = {
     "rag.embedding_engine": "ollama",
     "rag.embedding_model": embedding_model,
-        "rag.ollama.base_url": "http://localhost:11434",
+    "rag.ollama.base_url": "http://localhost:11434",
     "rag.embedding_batch_size": int(batch_size),
     "rag.embedding_concurrent_requests": int(concurrent_requests),
     "rag.enable_async_embedding": True,
