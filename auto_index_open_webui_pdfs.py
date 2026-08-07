@@ -21,6 +21,7 @@ KNOWLEDGE_DESCRIPTION_TEMPLATE = os.environ.get(
 )
 WEBUI_SECRET_KEY_FILE = Path(os.environ.get("WEBUI_SECRET_KEY_FILE", str(MEMORY_DIR / ".webui_secret_key")))
 LOG_PREFIX = "[open-webui-pdf-index]"
+USER_WAIT_TIMEOUT_SECONDS = int(os.environ.get("OPEN_WEBUI_PDF_INDEX_USER_WAIT_SECONDS", "1800"))
 
 
 def log(message: str) -> None:
@@ -61,6 +62,19 @@ def get_admin_user_id(con: sqlite3.Connection) -> str:
         return row["id"]
 
     raise RuntimeError("No Open WebUI user exists yet; create or bootstrap an admin before PDF auto-indexing.")
+
+
+def wait_for_admin_user_id(con: sqlite3.Connection, timeout_seconds: int = USER_WAIT_TIMEOUT_SECONDS) -> str:
+    deadline = time.time() + timeout_seconds
+    last_error = None
+    while time.time() < deadline:
+        try:
+            return get_admin_user_id(con)
+        except RuntimeError as exc:
+            last_error = exc
+            log("waiting for an Open WebUI user before PDF auto-indexing")
+            time.sleep(10)
+    raise RuntimeError(str(last_error) if last_error else "No Open WebUI user exists yet.")
 
 
 def ensure_knowledge(con: sqlite3.Connection, user_id: str, name: str) -> str:
@@ -228,7 +242,7 @@ def main() -> int:
         return 0
 
     with db_connect() as con:
-        user_id = get_admin_user_id(con)
+        user_id = wait_for_admin_user_id(con)
         token = create_token(user_id)
         knowledge_ids: dict[str, str] = {}
 
