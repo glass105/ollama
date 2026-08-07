@@ -13,6 +13,13 @@ OLLAMA_UPSTREAM = os.environ.get("OLLAMA_UPSTREAM_URL", "http://127.0.0.1:11434"
 COMBINED_CONTEXT = os.environ.get("COMBINED_CONTEXT", "/workspace/current_context.md")
 DEFAULT_NUM_CTX = int(os.environ.get("OPEN_WEBUI_MEMORY_PROXY_NUM_CTX", "8192"))
 DEFAULT_NUM_PREDICT = int(os.environ.get("OPEN_WEBUI_MEMORY_PROXY_NUM_PREDICT", "768"))
+STRIP_TOOLS = os.environ.get("OPEN_WEBUI_MEMORY_PROXY_STRIP_TOOLS", "true").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "y",
+    "on",
+}
 
 
 def load_memory_prompt() -> str:
@@ -39,6 +46,10 @@ def inject_memory(payload: dict) -> dict:
     memory_prompt = load_memory_prompt()
     if not memory_prompt.strip():
         return payload
+
+    if STRIP_TOOLS:
+        payload.pop("tools", None)
+        payload.pop("tool_choice", None)
 
     options = payload.get("options")
     if not isinstance(options, dict):
