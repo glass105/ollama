@@ -1,5 +1,9 @@
-# AnythingLLM Memory
+# AnythingLLM Export
 
-Store durable AnythingLLM workspace notes, exported context, RAG source summaries, and startup/reload instructions here.
+Generated from the live disposable RunPod AnythingLLM runtime at 2026-08-07 20:33:01 UTC.
 
-Do not store AnythingLLM databases, vector stores, uploads, caches, logs, tokens, passwords, or other runtime state.
+This folder stores durable Markdown state only: workspace settings, document manifests, chat history, and operator notes.
+
+It intentionally does not store AnythingLLM SQLite databases, LanceDB/vector stores, uploaded runtime files, caches, logs, tokens, passwords, private keys, or full raw extracted PDF text.
+
+The source documents remain in `PDFS/Nokia/`. On pod startup, AnythingLLM should be recreated from Git and should re-import/re-index those source files rather than relying on runtime state.
