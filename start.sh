@@ -15,7 +15,8 @@ GITHUB_BRANCH="${GITHUB_BRANCH:-main}"
 MEMORY_DIR="${MEMORY_DIR:-/workspace/ollama-memory}"
 COMBINED_CONTEXT="${COMBINED_CONTEXT:-/workspace/current_context.md}"
 OLLAMA_MODEL="${OLLAMA_MODEL:-qwen3-coder:30b}"
-OLLAMA_HOST="${OLLAMA_HOST:-0.0.0.0:11434}"
+OLLAMA_UPSTREAM_HOST="${OLLAMA_UPSTREAM_HOST:-127.0.0.1:11436}"
+OLLAMA_PROXY_PORT="${OLLAMA_PROXY_PORT:-11434}"
 OPEN_WEBUI_PORT="${OPEN_WEBUI_PORT:-3000}"
 OPEN_WEBUI_MEMORY_PROXY_PORT="${OPEN_WEBUI_MEMORY_PROXY_PORT:-11435}"
 OPEN_WEBUI_BOOTSTRAP_ADMIN="${OPEN_WEBUI_BOOTSTRAP_ADMIN:-false}"
@@ -253,8 +254,8 @@ wait_for_ollama() {
 }
 
 start_ollama() {
-  log "Starting Ollama with OLLAMA_HOST=$OLLAMA_HOST."
-  export OLLAMA_HOST
+  log "Starting Ollama upstream with OLLAMA_HOST=$OLLAMA_UPSTREAM_HOST."
+  export OLLAMA_HOST="$OLLAMA_UPSTREAM_HOST"
   nohup ollama serve > /tmp/ollama.log 2>&1 &
 }
 
@@ -288,7 +289,7 @@ pull_embedding_model() {
 
 start_open_webui() {
   log "Starting Open WebUI on port $OPEN_WEBUI_PORT."
-  export OLLAMA_BASE_URL="http://localhost:$OPEN_WEBUI_MEMORY_PROXY_PORT"
+  export OLLAMA_BASE_URL="http://localhost:$OLLAMA_PROXY_PORT"
   export WEBUI_AUTH="${WEBUI_AUTH:-True}"
   export DATA_DIR="${DATA_DIR:-/workspace/open-webui}"
   mkdir -p "$DATA_DIR"
@@ -325,11 +326,18 @@ start_open_webui_memory_proxy() {
     return 0
   fi
 
-  log "Starting Open WebUI memory proxy on localhost:$OPEN_WEBUI_MEMORY_PROXY_PORT."
+  log "Starting Open WebUI memory proxy on localhost:$OLLAMA_PROXY_PORT."
   COMBINED_CONTEXT="$COMBINED_CONTEXT" \
-    OPEN_WEBUI_MEMORY_PROXY_PORT="$OPEN_WEBUI_MEMORY_PROXY_PORT" \
-    OLLAMA_UPSTREAM_URL="http://127.0.0.1:11434" \
-    nohup python3 "$MEMORY_DIR/open_webui_memory_proxy.py" > /tmp/open-webui-memory-proxy.log 2>&1 &
+    OPEN_WEBUI_MEMORY_PROXY_PORT="$OLLAMA_PROXY_PORT" \
+    OLLAMA_UPSTREAM_URL="http://$OLLAMA_UPSTREAM_HOST" \
+    nohup python3 "$MEMORY_DIR/open_webui_memory_proxy.py" > /tmp/open-webui-memory-proxy-$OLLAMA_PROXY_PORT.log 2>&1 &
+  if [ "$OPEN_WEBUI_MEMORY_PROXY_PORT" != "$OLLAMA_PROXY_PORT" ]; then
+    log "Starting compatibility memory proxy on localhost:$OPEN_WEBUI_MEMORY_PROXY_PORT."
+    COMBINED_CONTEXT="$COMBINED_CONTEXT" \
+      OPEN_WEBUI_MEMORY_PROXY_PORT="$OPEN_WEBUI_MEMORY_PROXY_PORT" \
+      OLLAMA_UPSTREAM_URL="http://$OLLAMA_UPSTREAM_HOST" \
+      nohup python3 "$MEMORY_DIR/open_webui_memory_proxy.py" > /tmp/open-webui-memory-proxy.log 2>&1 &
+  fi
 }
 
 configure_open_webui_fast_rag() {
@@ -358,7 +366,7 @@ db_path, embedding_model, batch_size, concurrent_requests = sys.argv[1:5]
 updates = {
     "rag.embedding_engine": "ollama",
     "rag.embedding_model": embedding_model,
-    "rag.ollama.base_url": "http://localhost:11434",
+        "rag.ollama.base_url": "http://localhost:11434",
     "rag.embedding_batch_size": int(batch_size),
     "rag.embedding_concurrent_requests": int(concurrent_requests),
     "rag.enable_async_embedding": True,
@@ -385,7 +393,7 @@ configure_open_webui_proxy_url() {
   log "Configuring Open WebUI to use memory proxy."
   for _ in $(seq 1 60); do
     if [ -f "${DATA_DIR:-/workspace/open-webui}/webui.db" ]; then
-      python3 - "${DATA_DIR:-/workspace/open-webui}/webui.db" "$OPEN_WEBUI_MEMORY_PROXY_PORT" "$OLLAMA_MODEL" <<'PY' || true
+      python3 - "${DATA_DIR:-/workspace/open-webui}/webui.db" "$OLLAMA_PROXY_PORT" "$OLLAMA_MODEL" <<'PY' || true
 import json
 import sqlite3
 import sys
