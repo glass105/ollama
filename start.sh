@@ -409,8 +409,8 @@ updates = {
     "memories.system_context.enable": False,
     "memories.background_review.enable": False,
     "models.default_metadata": {"capabilities": {"memory": False}},
-    "ui.default_models": [model],
-    "ui.default_pinned_models": [model],
+    "ui.default_models": model,
+    "ui.default_pinned_models": model,
 }
 for key, value in updates.items():
     con.execute(
