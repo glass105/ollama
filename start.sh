@@ -628,6 +628,30 @@ path.write_text("\n".join(out) + "\n")
 PY
 }
 
+configure_anythingllm_workspaces() {
+  local db_path="$ANYTHINGLLM_STORAGE_DIR/anythingllm.db"
+  if [ ! -f "$db_path" ]; then
+    return 0
+  fi
+
+  log "Configuring AnythingLLM workspaces to use Ollama model $OLLAMA_MODEL."
+  python3 - "$db_path" "$OLLAMA_MODEL" <<'PY'
+import sqlite3
+import sys
+import time
+
+db_path, model = sys.argv[1:3]
+con = sqlite3.connect(db_path)
+now = int(time.time() * 1000)
+con.execute(
+    "update workspaces set chatProvider = ?, chatModel = ?, "
+    "agentProvider = ?, agentModel = ?, lastUpdatedAt = ?",
+    ("ollama", model, "ollama", model, now),
+)
+con.commit()
+PY
+}
+
 ensure_anythingllm() {
   case "$(printf '%s' "$ENABLE_ANYTHINGLLM" | tr '[:upper:]' '[:lower:]')" in
     true|1|yes|y|on) ;;
@@ -667,6 +691,7 @@ ensure_anythingllm() {
 
   configure_anythingllm_nginx
   configure_anythingllm_env
+  configure_anythingllm_workspaces
 
   mkdir -p "$ANYTHINGLLM_DEPLOY_DIR/logs"
   cat > "$ANYTHINGLLM_DEPLOY_DIR/start-anythingllm.sh" <<EOF
@@ -676,8 +701,18 @@ NODE20=/usr/local/bin/node
 export PATH=/usr/local/bin:/usr/bin:/bin
 export PUPPETEER_SKIP_DOWNLOAD=true
 export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-pkill -f '$ANYTHINGLLM_DIR/server' 2>/dev/null || true
-pkill -f '$ANYTHINGLLM_DIR/collector' 2>/dev/null || true
+if [ -f "$ANYTHINGLLM_DEPLOY_DIR/server.pid" ]; then
+  kill "\$(cat "$ANYTHINGLLM_DEPLOY_DIR/server.pid")" 2>/dev/null || true
+fi
+if [ -f "$ANYTHINGLLM_DEPLOY_DIR/collector.pid" ]; then
+  kill "\$(cat "$ANYTHINGLLM_DEPLOY_DIR/collector.pid")" 2>/dev/null || true
+fi
+if command -v fuser >/dev/null 2>&1; then
+  fuser -k ${ANYTHINGLLM_INTERNAL_PORT}/tcp 2>/dev/null || true
+  fuser -k 8888/tcp 2>/dev/null || true
+else
+  pkill -f '/usr/local/bin/node index.js' 2>/dev/null || true
+fi
 sleep 1
 cd "$ANYTHINGLLM_DIR/server"
 set -a
