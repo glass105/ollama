@@ -39,6 +39,7 @@ git add README.md \
   ask_with_memory.sh \
   bootstrap_open_webui_admin.py \
   auto_index_open_webui_pdfs.py \
+  auto_index_anythingllm_pdfs.py \
   open_webui_memory_proxy.py \
   MEMORY/*.md \
   MEMORY/*.MD \

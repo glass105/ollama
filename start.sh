@@ -38,6 +38,7 @@ OPENCLAW_GATEWAY_AUTH="${OPENCLAW_GATEWAY_AUTH:-token}"
 OPENCLAW_ALLOWED_ORIGINS="${OPENCLAW_ALLOWED_ORIGINS:-}"
 OPENCLAW_ALLOW_HOST_HEADER_ORIGIN_FALLBACK="${OPENCLAW_ALLOW_HOST_HEADER_ORIGIN_FALLBACK:-false}"
 ENABLE_ANYTHINGLLM="${ENABLE_ANYTHINGLLM:-false}"
+ENABLE_ANYTHINGLLM_PDF_AUTO_INDEX="${ENABLE_ANYTHINGLLM_PDF_AUTO_INDEX:-false}"
 ANYTHINGLLM_DIR="${ANYTHINGLLM_DIR:-/workspace/anything-llm}"
 ANYTHINGLLM_REPO="${ANYTHINGLLM_REPO:-https://github.com/Mintplex-Labs/anything-llm.git}"
 ANYTHINGLLM_PUBLIC_PORT="${ANYTHINGLLM_PUBLIC_PORT:-3001}"
@@ -45,6 +46,8 @@ ANYTHINGLLM_INTERNAL_PORT="${ANYTHINGLLM_INTERNAL_PORT:-3010}"
 ANYTHINGLLM_DEPLOY_DIR="${ANYTHINGLLM_DEPLOY_DIR:-/workspace/anythingllm-deploy}"
 ANYTHINGLLM_STORAGE_DIR="${ANYTHINGLLM_STORAGE_DIR:-/workspace/anything-llm/server/storage}"
 ANYTHINGLLM_JWT_SECRET="${ANYTHINGLLM_JWT_SECRET:-runpod-anythingllm-local-compare}"
+ANYTHINGLLM_API_KEY_FILE="${ANYTHINGLLM_API_KEY_FILE:-/tmp/anythingllm-api-key}"
+ANYTHINGLLM_PDF_DIR="${ANYTHINGLLM_PDF_DIR:-$MEMORY_DIR/PDFS}"
 
 log() {
   echo "[start] $*"
@@ -748,6 +751,32 @@ wait_for_anythingllm() {
   return 1
 }
 
+auto_index_anythingllm_pdfs() {
+  case "$(printf '%s' "$ENABLE_ANYTHINGLLM_PDF_AUTO_INDEX" | tr '[:upper:]' '[:lower:]')" in
+    true|1|yes|y|on) ;;
+    *)
+      log "Skipping AnythingLLM PDF auto-index because ENABLE_ANYTHINGLLM_PDF_AUTO_INDEX=$ENABLE_ANYTHINGLLM_PDF_AUTO_INDEX."
+      return 0
+      ;;
+  esac
+
+  if [ ! -f "$MEMORY_DIR/auto_index_anythingllm_pdfs.py" ]; then
+    log "AnythingLLM PDF auto-index script is missing; skipping."
+    return 0
+  fi
+
+  log "Starting AnythingLLM PDF auto-index for $ANYTHINGLLM_PDF_DIR."
+  MEMORY_DIR="$MEMORY_DIR" \
+    ANYTHINGLLM_DIR="$ANYTHINGLLM_DIR" \
+    ANYTHINGLLM_STORAGE_DIR="$ANYTHINGLLM_STORAGE_DIR" \
+    ANYTHINGLLM_URL="http://127.0.0.1:$ANYTHINGLLM_INTERNAL_PORT" \
+    ANYTHINGLLM_API_KEY_FILE="$ANYTHINGLLM_API_KEY_FILE" \
+    ANYTHINGLLM_PDF_DIR="$ANYTHINGLLM_PDF_DIR" \
+    OLLAMA_MODEL="$OLLAMA_MODEL" \
+    nohup python3 "$MEMORY_DIR/auto_index_anythingllm_pdfs.py" \
+      > /tmp/anythingllm-pdf-auto-index.log 2>&1 &
+}
+
 start_autosync() {
   log "Starting memory autosync."
   nohup "$MEMORY_DIR/autosync_memory.sh" > /tmp/autosync-memory.log 2>&1 &
@@ -788,6 +817,7 @@ Logs:
   /tmp/autosync-memory.log
   ${ANYTHINGLLM_DEPLOY_DIR}/logs/server.log
   ${ANYTHINGLLM_DEPLOY_DIR}/logs/collector.log
+  /tmp/anythingllm-pdf-auto-index.log
 
 Open WebUI bootstrap admin:
   Email: ${OPEN_WEBUI_ADMIN_EMAIL:-disabled}
@@ -804,6 +834,7 @@ install_packages
 ensure_repo
 chmod +x "$MEMORY_DIR/start.sh" "$MEMORY_DIR/load_memory.sh" "$MEMORY_DIR/sync_memory.sh" "$MEMORY_DIR/autosync_memory.sh"
 chmod +x "$MEMORY_DIR/auto_index_open_webui_pdfs.py" 2>/dev/null || true
+chmod +x "$MEMORY_DIR/auto_index_anythingllm_pdfs.py" 2>/dev/null || true
 "$MEMORY_DIR/load_memory.sh"
 ensure_ollama
 start_ollama
@@ -830,6 +861,7 @@ fi
 start_autosync
 ensure_anythingllm || log "AnythingLLM setup failed. See ${ANYTHINGLLM_DEPLOY_DIR}/logs/server.log if it started."
 wait_for_anythingllm || true
+auto_index_anythingllm_pdfs
 if ensure_openclaw; then
   configure_openclaw || true
   start_openclaw_gateway || true

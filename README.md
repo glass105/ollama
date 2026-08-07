@@ -217,6 +217,22 @@ Embedding model: nomic-embed-text:latest
 
 AnythingLLM runtime data, workspace uploads, vector stores, logs, Node dependencies, and databases are disposable pod-local state. They must not be committed to GitHub.
 
+AnythingLLM PDF auto-indexing can rebuild its disposable LanceDB vectors from Git-backed PDFs on each fresh pod:
+
+```bash
+ENABLE_ANYTHINGLLM=true
+ENABLE_ANYTHINGLLM_PDF_AUTO_INDEX=true
+ANYTHINGLLM_PDF_DIR=/workspace/ollama-memory/PDFS
+```
+
+The auto-indexer scans each immediate PDF subdirectory and creates or reuses an AnythingLLM workspace with the same name:
+
+```text
+PDFS/Nokia/*.pdf -> AnythingLLM workspace: Nokia
+```
+
+It generates a pod-local AnythingLLM API key in `/tmp/anythingllm-api-key`, uploads each PDF into its workspace, and lets AnythingLLM recreate the local LanceDB vector database. The API key and LanceDB data are disposable runtime state and must not be committed.
+
 The AnythingLLM URL is:
 
 ```text
@@ -228,6 +244,7 @@ The logs are:
 ```text
 /workspace/anythingllm-deploy/logs/server.log
 /workspace/anythingllm-deploy/logs/collector.log
+/tmp/anythingllm-pdf-auto-index.log
 ```
 
 ## OpenClaw Local PC Access
