@@ -240,9 +240,9 @@ start_openclaw_gateway() {
 }
 
 wait_for_ollama() {
-  log "Waiting for Ollama on http://localhost:11434."
+  log "Waiting for Ollama on http://$OLLAMA_UPSTREAM_HOST."
   for _ in $(seq 1 120); do
-    if curl -fsS http://localhost:11434/api/tags >/dev/null 2>&1; then
+    if curl -fsS "http://$OLLAMA_UPSTREAM_HOST/api/tags" >/dev/null 2>&1; then
       log "Ollama is ready."
       return 0
     fi
