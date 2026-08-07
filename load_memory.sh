@@ -39,13 +39,13 @@ append_file() {
   fi
 }
 
-append_file "MEMORY/PROJECT_CONTEXT.md"
-append_file "MEMORY/initalInfo.MD"
-append_file "MEMORY/TODO.md"
-append_file "MEMORY/DECISIONS.md"
-append_file "MEMORY/OPENCLAW.md"
-append_file "MEMORY/PDF_REFERENCES.md"
-append_file "MEMORY/SECURITY.md"
+append_file "MEMORY/OpenWebUI/PROJECT_CONTEXT.md"
+append_file "MEMORY/OpenWebUI/initalInfo.MD"
+append_file "MEMORY/OpenWebUI/TODO.md"
+append_file "MEMORY/OpenWebUI/DECISIONS.md"
+append_file "MEMORY/OpenWebUI/OPENCLAW.md"
+append_file "MEMORY/OpenWebUI/PDF_REFERENCES.md"
+append_file "MEMORY/OpenWebUI/SECURITY.md"
 append_file "PROMPTS/QWEN_SYSTEM_PROMPT.md"
 
 echo "Combined memory written to $COMBINED_CONTEXT"

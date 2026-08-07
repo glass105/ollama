@@ -38,7 +38,7 @@ It also does not use persistent RunPod volume storage. A fresh pod can clone thi
 - `sync_memory.sh`
 - `autosync_memory.sh`
 - `.env.example`
-- Markdown memory in `MEMORY/`
+- Markdown memory in `MEMORY/OpenWebUI/` and `MEMORY/AnythingLLM/`
 - Prompts in `PROMPTS/`
 - PDFs in `PDFS/`
 - Images in `IMAGES/`
@@ -270,6 +270,7 @@ Only these paths are added:
 ```text
 README.md
 MEMORY/*.md
+MEMORY/**/*.md
 PROMPTS/*.md
 PDFS/*.md
 PDFS/*.pdf

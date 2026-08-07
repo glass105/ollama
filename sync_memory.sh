@@ -42,6 +42,8 @@ git add README.md \
   open_webui_memory_proxy.py \
   MEMORY/*.md \
   MEMORY/*.MD \
+  MEMORY/**/*.md \
+  MEMORY/**/*.MD \
   PROMPTS/*.md \
   PDFS/*.md \
   PDFS/*.pdf \
