@@ -26,6 +26,8 @@ def load_memory_prompt() -> str:
 
 The Markdown project memory is already provided below. You are not expected to read files during this chat.
 When the user asks what you remember from the MD files or project memory, summarize the provided memory below.
+Treat "memory", "MD files", "Markdown memory", and "project memory" as references to this injected GitHub memory context.
+Do not use or refer to Open WebUI memory tools such as list_memory_paths for project memory questions; those are separate and may be empty.
 Never claim you do not have access to project memory when answering questions about this setup.
 Follow MEMORY/DECISIONS.md and never store secrets, keys, tokens, logs, caches, databases, or model files in GitHub.
 
