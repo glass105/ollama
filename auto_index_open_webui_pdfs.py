@@ -212,7 +212,7 @@ def main() -> int:
         log(f"PDF directory not found: {PDF_DIR}; skipping")
         return 0
 
-    pdfs = sorted(p for p in PDF_DIR.glob("*.pdf") if p.is_file())
+    pdfs = sorted(p for p in PDF_DIR.rglob("*.pdf") if p.is_file())
     if not pdfs:
         log(f"no PDFs found in {PDF_DIR}; skipping")
         return 0

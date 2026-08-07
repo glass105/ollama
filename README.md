@@ -229,6 +229,8 @@ MEMORY/*.md
 PROMPTS/*.md
 PDFS/*.md
 PDFS/*.pdf
+PDFS/**/*.md
+PDFS/**/*.pdf
 IMAGES/*.md
 IMAGES/*.png
 IMAGES/*.jpg
@@ -256,6 +258,12 @@ Store lightweight PDF references in:
 
 ```text
 PDFS/
+```
+
+Vendor-specific PDFs can be grouped in subdirectories such as:
+
+```text
+PDFS/Nokia/
 ```
 
 Store lightweight image references in:

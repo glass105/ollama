@@ -45,6 +45,8 @@ git add README.md \
   PROMPTS/*.md \
   PDFS/*.md \
   PDFS/*.pdf \
+  PDFS/**/*.md \
+  PDFS/**/*.pdf \
   IMAGES/*.md \
   IMAGES/*.png \
   IMAGES/*.jpg \

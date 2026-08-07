@@ -1,6 +1,7 @@
 # PDF References
 
 The `PDFS/` directory stores reference PDFs that are durable GitHub-backed project assets.
+Vendor-specific PDFs can be grouped in subdirectories such as `PDFS/Nokia/`.
 
 Available PDFs:
 
