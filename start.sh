@@ -37,6 +37,14 @@ OPENCLAW_GATEWAY_BIND="${OPENCLAW_GATEWAY_BIND:-loopback}"
 OPENCLAW_GATEWAY_AUTH="${OPENCLAW_GATEWAY_AUTH:-token}"
 OPENCLAW_ALLOWED_ORIGINS="${OPENCLAW_ALLOWED_ORIGINS:-}"
 OPENCLAW_ALLOW_HOST_HEADER_ORIGIN_FALLBACK="${OPENCLAW_ALLOW_HOST_HEADER_ORIGIN_FALLBACK:-false}"
+ENABLE_ANYTHINGLLM="${ENABLE_ANYTHINGLLM:-false}"
+ANYTHINGLLM_DIR="${ANYTHINGLLM_DIR:-/workspace/anything-llm}"
+ANYTHINGLLM_REPO="${ANYTHINGLLM_REPO:-https://github.com/Mintplex-Labs/anything-llm.git}"
+ANYTHINGLLM_PUBLIC_PORT="${ANYTHINGLLM_PUBLIC_PORT:-3001}"
+ANYTHINGLLM_INTERNAL_PORT="${ANYTHINGLLM_INTERNAL_PORT:-3010}"
+ANYTHINGLLM_DEPLOY_DIR="${ANYTHINGLLM_DEPLOY_DIR:-/workspace/anythingllm-deploy}"
+ANYTHINGLLM_STORAGE_DIR="${ANYTHINGLLM_STORAGE_DIR:-/workspace/anything-llm/server/storage}"
+ANYTHINGLLM_JWT_SECRET="${ANYTHINGLLM_JWT_SECRET:-runpod-anythingllm-local-compare}"
 
 log() {
   echo "[start] $*"
@@ -498,6 +506,213 @@ bootstrap_open_webui_admin() {
     }
 }
 
+ensure_node20_for_anythingllm() {
+  if [ -x /usr/local/bin/node ] && /usr/local/bin/node -v | grep -Eq '^v20\.'; then
+    return 0
+  fi
+
+  if command -v node >/dev/null 2>&1 && node -v | grep -Eq '^v20\.'; then
+    return 0
+  fi
+
+  if ! command -v npm >/dev/null 2>&1; then
+    log "npm is missing; cannot install Node 20 for AnythingLLM."
+    return 1
+  fi
+
+  log "Installing Node 20 for AnythingLLM."
+  npm install -g n
+  n 20.19.0
+}
+
+configure_anythingllm_nginx() {
+  if ! command -v nginx >/dev/null 2>&1 || [ ! -f /etc/nginx/nginx.conf ]; then
+    log "nginx is not available; AnythingLLM will listen on port $ANYTHINGLLM_PUBLIC_PORT directly."
+    ANYTHINGLLM_INTERNAL_PORT="$ANYTHINGLLM_PUBLIC_PORT"
+    return 0
+  fi
+
+  if grep -q "AnythingLLM comparison UI" /etc/nginx/nginx.conf; then
+    return 0
+  fi
+
+  log "Adding nginx proxy from port $ANYTHINGLLM_PUBLIC_PORT to AnythingLLM port $ANYTHINGLLM_INTERNAL_PORT."
+  python3 - /etc/nginx/nginx.conf "$ANYTHINGLLM_PUBLIC_PORT" "$ANYTHINGLLM_INTERNAL_PORT" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+public_port = sys.argv[2]
+internal_port = sys.argv[3]
+text = path.read_text()
+block = f"""
+    # AnythingLLM comparison UI
+    server {{
+        listen {public_port};
+
+        location / {{
+            add_header Cache-Control no-cache;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_buffering off;
+            proxy_cache off;
+            proxy_connect_timeout 605;
+            proxy_send_timeout 605;
+            proxy_read_timeout 605;
+            send_timeout 605;
+            proxy_pass http://localhost:{internal_port};
+        }}
+
+        include snippets/nginx-error-handling.conf;
+    }}
+"""
+if "http {" in text:
+    text = text.replace("http {", "http {\n" + block, 1)
+else:
+    text += "\nhttp {\n" + block + "\n}\n"
+path.write_text(text)
+PY
+  nginx -t
+  nginx -s reload || service nginx restart || true
+}
+
+configure_anythingllm_env() {
+  mkdir -p "$ANYTHINGLLM_STORAGE_DIR"
+  python3 - \
+    "$ANYTHINGLLM_DIR/server/.env" \
+    "$ANYTHINGLLM_INTERNAL_PORT" \
+    "http://127.0.0.1:${OLLAMA_UPSTREAM_HOST##*:}" \
+    "$OLLAMA_MODEL" \
+    "$OPEN_WEBUI_RAG_EMBEDDING_MODEL" \
+    "$ANYTHINGLLM_STORAGE_DIR" \
+    "$ANYTHINGLLM_JWT_SECRET" <<'PY'
+from pathlib import Path
+import sys
+
+env_path, port, ollama_url, model, embedding_model, storage_dir, jwt_secret = sys.argv[1:8]
+path = Path(env_path)
+lines = path.read_text().splitlines() if path.exists() else []
+updates = {
+    "LLM_PROVIDER": "'ollama'",
+    "OLLAMA_BASE_PATH": f"'{ollama_url}'",
+    "OLLAMA_MODEL_PREF": f"'{model}'",
+    "OLLAMA_MODEL_TOKEN_LIMIT": "32768",
+    "OLLAMA_RESPONSE_TIMEOUT": "7200000",
+    "EMBEDDING_ENGINE": "'ollama'",
+    "EMBEDDING_BASE_PATH": f"'{ollama_url}'",
+    "EMBEDDING_MODEL_PREF": f"'{embedding_model}'",
+    "EMBEDDING_MODEL_MAX_CHUNK_LENGTH": "8192",
+    "SERVER_PORT": str(port),
+    "STORAGE_DIR": f'"{storage_dir}"',
+    "JWT_SECRET": f'"{jwt_secret}"',
+}
+seen = set()
+out = []
+for line in lines:
+    key = line.split("=", 1)[0].strip().lstrip("#").strip() if "=" in line else ""
+    if key in updates:
+        if key not in seen:
+            out.append(f"{key}={updates[key]}")
+            seen.add(key)
+        continue
+    out.append(line)
+for key, value in updates.items():
+    if key not in seen:
+        out.append(f"{key}={value}")
+path.write_text("\n".join(out) + "\n")
+PY
+}
+
+ensure_anythingllm() {
+  case "$(printf '%s' "$ENABLE_ANYTHINGLLM" | tr '[:upper:]' '[:lower:]')" in
+    true|1|yes|y|on) ;;
+    *)
+      log "Skipping AnythingLLM because ENABLE_ANYTHINGLLM=$ENABLE_ANYTHINGLLM."
+      return 0
+      ;;
+  esac
+
+  ensure_node20_for_anythingllm || return 1
+  command -v yarn >/dev/null 2>&1 || npm install -g yarn
+
+  if [ -d "$ANYTHINGLLM_DIR/.git" ]; then
+    log "Updating AnythingLLM at $ANYTHINGLLM_DIR."
+    git -C "$ANYTHINGLLM_DIR" pull --rebase
+  else
+    log "Cloning AnythingLLM into $ANYTHINGLLM_DIR."
+    git clone "$ANYTHINGLLM_REPO" "$ANYTHINGLLM_DIR"
+  fi
+
+  log "Installing AnythingLLM dependencies."
+  export PATH="/usr/local/bin:$PATH"
+  export PUPPETEER_SKIP_DOWNLOAD=true
+  export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+  cd "$ANYTHINGLLM_DIR"
+  yarn setup
+
+  log "Building AnythingLLM frontend."
+  cd "$ANYTHINGLLM_DIR/frontend"
+  yarn build
+  rm -rf "$ANYTHINGLLM_DIR/server/public"
+  cp -r "$ANYTHINGLLM_DIR/frontend/dist" "$ANYTHINGLLM_DIR/server/public"
+
+  cd "$ANYTHINGLLM_DIR/server"
+  yarn prisma generate
+  yarn prisma migrate deploy || yarn prisma migrate reset --force --skip-seed || true
+
+  configure_anythingllm_nginx
+  configure_anythingllm_env
+
+  mkdir -p "$ANYTHINGLLM_DEPLOY_DIR/logs"
+  cat > "$ANYTHINGLLM_DEPLOY_DIR/start-anythingllm.sh" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+NODE20=/usr/local/bin/node
+export PATH=/usr/local/bin:/usr/bin:/bin
+export PUPPETEER_SKIP_DOWNLOAD=true
+export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+pkill -f '$ANYTHINGLLM_DIR/server' 2>/dev/null || true
+pkill -f '$ANYTHINGLLM_DIR/collector' 2>/dev/null || true
+sleep 1
+cd "$ANYTHINGLLM_DIR/server"
+set -a
+. "$ANYTHINGLLM_DIR/server/.env"
+set +a
+export NODE_ENV=production
+nohup "\$NODE20" index.js > "$ANYTHINGLLM_DEPLOY_DIR/logs/server.log" 2>&1 < /dev/null &
+echo \$! > "$ANYTHINGLLM_DEPLOY_DIR/server.pid"
+cd "$ANYTHINGLLM_DIR/collector"
+nohup "\$NODE20" index.js > "$ANYTHINGLLM_DEPLOY_DIR/logs/collector.log" 2>&1 < /dev/null &
+echo \$! > "$ANYTHINGLLM_DEPLOY_DIR/collector.pid"
+EOF
+  chmod +x "$ANYTHINGLLM_DEPLOY_DIR/start-anythingllm.sh"
+  "$ANYTHINGLLM_DEPLOY_DIR/start-anythingllm.sh"
+}
+
+wait_for_anythingllm() {
+  case "$(printf '%s' "$ENABLE_ANYTHINGLLM" | tr '[:upper:]' '[:lower:]')" in
+    true|1|yes|y|on) ;;
+    *) return 0 ;;
+  esac
+
+  log "Waiting for AnythingLLM on http://localhost:$ANYTHINGLLM_PUBLIC_PORT."
+  for _ in $(seq 1 180); do
+    if curl -fsS "http://localhost:$ANYTHINGLLM_PUBLIC_PORT/api/ping" >/dev/null 2>&1; then
+      log "AnythingLLM is ready."
+      return 0
+    fi
+    sleep 1
+  done
+
+  log "AnythingLLM did not become ready within 180 seconds."
+  return 1
+}
+
 start_autosync() {
   log "Starting memory autosync."
   nohup "$MEMORY_DIR/autosync_memory.sh" > /tmp/autosync-memory.log 2>&1 &
@@ -510,6 +725,9 @@ Disposable RunPod AI pod is starting.
 
 Open WebUI:
   http://<RUNPOD_HOST_OR_PROXY>:${OPEN_WEBUI_PORT}
+
+AnythingLLM:
+  http://<RUNPOD_HOST_OR_PROXY>:${ANYTHINGLLM_PUBLIC_PORT}
 
 Ollama API inside pod:
   http://localhost:11434
@@ -533,6 +751,8 @@ Logs:
   /tmp/ollama.log
   /tmp/open-webui.log
   /tmp/autosync-memory.log
+  ${ANYTHINGLLM_DEPLOY_DIR}/logs/server.log
+  ${ANYTHINGLLM_DEPLOY_DIR}/logs/collector.log
 
 Open WebUI bootstrap admin:
   Email: ${OPEN_WEBUI_ADMIN_EMAIL:-disabled}
@@ -573,6 +793,8 @@ else
   log "Open WebUI install failed. See /tmp/open-webui-install.log. Continuing with Ollama, SSH, and memory sync."
 fi
 start_autosync
+ensure_anythingllm || log "AnythingLLM setup failed. See ${ANYTHINGLLM_DEPLOY_DIR}/logs/server.log if it started."
+wait_for_anythingllm || true
 if ensure_openclaw; then
   configure_openclaw || true
   start_openclaw_gateway || true

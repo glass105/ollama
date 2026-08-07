@@ -1,6 +1,6 @@
 # Disposable RunPod Ollama Setup
 
-Minimal startup and memory setup for a disposable RunPod pod running Ollama, `qwen3-coder:30b`, Open WebUI, and OpenClaw agents.
+Minimal startup and memory setup for a disposable RunPod pod running Ollama, `qwen3-coder:30b`, Open WebUI, OpenClaw agents, and optional AnythingLLM.
 
 ## Architecture Overview
 
@@ -85,8 +85,9 @@ The startup script:
 12. Optionally bootstraps an Open WebUI admin.
 13. Auto-indexes PDFs from each subdirectory in `PDFS/` into matching Open WebUI Knowledge collections.
 14. Starts memory autosync.
-15. Starts OpenClaw if enabled.
-16. Prints connection details.
+15. Optionally installs and starts AnythingLLM on port `3001`.
+16. Starts OpenClaw if enabled.
+17. Prints connection details.
 
 ## Open WebUI Access
 
@@ -190,6 +191,43 @@ The auto-index log is:
 
 ```text
 /tmp/open-webui-pdf-auto-index.log
+```
+
+## AnythingLLM Comparison
+
+AnythingLLM can be deployed beside Open WebUI for a separate RAG comparison layer.
+
+Expose port `3001/http` on the RunPod pod and enable:
+
+```bash
+ENABLE_ANYTHINGLLM=true
+ANYTHINGLLM_PUBLIC_PORT=3001
+ANYTHINGLLM_INTERNAL_PORT=3010
+```
+
+Startup configures AnythingLLM to use the same local Ollama upstream as Open WebUI:
+
+```text
+LLM provider: Ollama
+Ollama base URL: http://127.0.0.1:11436
+Chat model: qwen3-coder:30b
+Embedding provider: Ollama
+Embedding model: nomic-embed-text:latest
+```
+
+AnythingLLM runtime data, workspace uploads, vector stores, logs, Node dependencies, and databases are disposable pod-local state. They must not be committed to GitHub.
+
+The AnythingLLM URL is:
+
+```text
+http://<RUNPOD_HOST_OR_PROXY>:3001
+```
+
+The logs are:
+
+```text
+/workspace/anythingllm-deploy/logs/server.log
+/workspace/anythingllm-deploy/logs/collector.log
 ```
 
 ## OpenClaw Local PC Access
