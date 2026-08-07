@@ -397,6 +397,10 @@ now = int(time.time())
 updates = {
     "ollama.base_urls": [f"http://localhost:{port}"],
     "openai.enable": False,
+    "memories.enable": False,
+    "memories.system_context.enable": False,
+    "memories.background_review.enable": False,
+    "models.default_metadata": {"capabilities": {"memory": False}},
     "ui.default_models": [model],
     "ui.default_pinned_models": [model],
 }
@@ -406,6 +410,21 @@ for key, value in updates.items():
         "on conflict(key) do update set value = excluded.value, updated_at = excluded.updated_at",
         (key, json.dumps(value), now),
     )
+row = con.execute("select value from config where key = ?", ("user.permissions",)).fetchone()
+try:
+    permissions = json.loads(row[0]) if row and row[0] else {}
+except Exception:
+    permissions = {}
+if not isinstance(permissions, dict):
+    permissions = {}
+features = permissions.setdefault("features", {})
+if isinstance(features, dict):
+    features["memories"] = False
+con.execute(
+    "insert into config (key, value, updated_at) values (?, ?, ?) "
+    "on conflict(key) do update set value = excluded.value, updated_at = excluded.updated_at",
+    ("user.permissions", json.dumps(permissions), now),
+)
 con.commit()
 PY
       return 0
