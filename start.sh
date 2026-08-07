@@ -385,20 +385,27 @@ configure_open_webui_proxy_url() {
   log "Configuring Open WebUI to use memory proxy."
   for _ in $(seq 1 60); do
     if [ -f "${DATA_DIR:-/workspace/open-webui}/webui.db" ]; then
-      python3 - "${DATA_DIR:-/workspace/open-webui}/webui.db" "$OPEN_WEBUI_MEMORY_PROXY_PORT" <<'PY' || true
+      python3 - "${DATA_DIR:-/workspace/open-webui}/webui.db" "$OPEN_WEBUI_MEMORY_PROXY_PORT" "$OLLAMA_MODEL" <<'PY' || true
 import json
 import sqlite3
 import sys
 import time
 
-db_path, port = sys.argv[1:3]
+db_path, port, model = sys.argv[1:4]
 con = sqlite3.connect(db_path)
 now = int(time.time())
-con.execute(
-    "insert into config (key, value, updated_at) values (?, ?, ?) "
-    "on conflict(key) do update set value = excluded.value, updated_at = excluded.updated_at",
-    ("ollama.base_urls", json.dumps([f"http://localhost:{port}"]), now),
-)
+updates = {
+    "ollama.base_urls": [f"http://localhost:{port}"],
+    "openai.enable": False,
+    "ui.default_models": [model],
+    "ui.default_pinned_models": [model],
+}
+for key, value in updates.items():
+    con.execute(
+        "insert into config (key, value, updated_at) values (?, ?, ?) "
+        "on conflict(key) do update set value = excluded.value, updated_at = excluded.updated_at",
+        (key, json.dumps(value), now),
+    )
 con.commit()
 PY
       return 0
