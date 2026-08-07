@@ -81,10 +81,12 @@ The startup script:
 8. Starts the pod-local Open WebUI memory proxy on port `11435`.
 9. Starts Open WebUI on port `3000`.
 10. Configures Open WebUI to use the memory proxy as its Ollama base URL.
-11. Optionally bootstraps an Open WebUI admin.
-12. Starts memory autosync.
-13. Starts OpenClaw if enabled.
-14. Prints connection details.
+11. Configures Open WebUI RAG embeddings to use Ollama for faster indexing.
+12. Optionally bootstraps an Open WebUI admin.
+13. Auto-indexes PDFs from `PDFS/` into the configured Open WebUI Knowledge collection.
+14. Starts memory autosync.
+15. Starts OpenClaw if enabled.
+16. Prints connection details.
 
 ## Open WebUI Access
 
@@ -143,6 +145,45 @@ The proxy log is:
 
 ```text
 /tmp/open-webui-memory-proxy.log
+```
+
+## Open WebUI RAG And PDF Auto-Index
+
+Startup records and reapplies the speed settings that made the pod responsive:
+
+- Chat memory proxy defaults to `OPEN_WEBUI_MEMORY_PROXY_NUM_CTX=8192`.
+- Chat memory proxy defaults to `OPEN_WEBUI_MEMORY_PROXY_NUM_PREDICT=768`.
+- Open WebUI RAG embeddings use Ollama instead of the slow local CPU sentence-transformer path.
+- Default RAG embedding model is `nomic-embed-text:latest`.
+- Default embedding batch size is `16`.
+
+The embedding model is pulled at startup when fast RAG is enabled:
+
+```bash
+ENABLE_OPEN_WEBUI_FAST_RAG=true
+OPEN_WEBUI_RAG_EMBEDDING_MODEL=nomic-embed-text:latest
+```
+
+PDF auto-indexing is enabled by default. It scans Git-backed PDFs in:
+
+```text
+PDFS/
+```
+
+and indexes them into an Open WebUI Knowledge collection:
+
+```bash
+ENABLE_OPEN_WEBUI_PDF_AUTO_INDEX=true
+OPEN_WEBUI_PDF_KNOWLEDGE_NAME=nokia
+OPEN_WEBUI_PDF_KNOWLEDGE_DESCRIPTION="Git-backed PDF references"
+```
+
+The auto-indexer stores extracted text, Open WebUI upload records, Chroma vectors, and status data only in the pod-local Open WebUI runtime directory. Those generated runtime files are disposable and must not be committed.
+
+The auto-index log is:
+
+```text
+/tmp/open-webui-pdf-auto-index.log
 ```
 
 ## OpenClaw Local PC Access

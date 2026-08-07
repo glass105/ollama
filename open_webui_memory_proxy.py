@@ -11,6 +11,8 @@ LISTEN_HOST = os.environ.get("OPEN_WEBUI_MEMORY_PROXY_HOST", "127.0.0.1")
 LISTEN_PORT = int(os.environ.get("OPEN_WEBUI_MEMORY_PROXY_PORT", "11435"))
 OLLAMA_UPSTREAM = os.environ.get("OLLAMA_UPSTREAM_URL", "http://127.0.0.1:11434").rstrip("/")
 COMBINED_CONTEXT = os.environ.get("COMBINED_CONTEXT", "/workspace/current_context.md")
+DEFAULT_NUM_CTX = int(os.environ.get("OPEN_WEBUI_MEMORY_PROXY_NUM_CTX", "8192"))
+DEFAULT_NUM_PREDICT = int(os.environ.get("OPEN_WEBUI_MEMORY_PROXY_NUM_PREDICT", "768"))
 
 
 def load_memory_prompt() -> str:
@@ -39,7 +41,9 @@ def inject_memory(payload: dict) -> dict:
     options = payload.get("options")
     if not isinstance(options, dict):
         options = {}
-    options["num_ctx"] = max(int(options.get("num_ctx", 0) or 0), 32768)
+    options["num_ctx"] = DEFAULT_NUM_CTX
+    if "num_predict" not in options and DEFAULT_NUM_PREDICT > 0:
+        options["num_predict"] = DEFAULT_NUM_PREDICT
     payload["options"] = options
 
     messages = payload.get("messages")

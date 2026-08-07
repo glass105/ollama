@@ -32,6 +32,14 @@ git pull --rebase origin "$GITHUB_BRANCH"
 
 log "Adding allowed memory/config assets only."
 git add README.md \
+  start.sh \
+  load_memory.sh \
+  sync_memory.sh \
+  autosync_memory.sh \
+  ask_with_memory.sh \
+  bootstrap_open_webui_admin.py \
+  auto_index_open_webui_pdfs.py \
+  open_webui_memory_proxy.py \
   MEMORY/*.md \
   MEMORY/*.MD \
   PROMPTS/*.md \

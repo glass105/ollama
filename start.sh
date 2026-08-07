@@ -24,6 +24,13 @@ OPEN_WEBUI_ADMIN_NAME="${OPEN_WEBUI_ADMIN_NAME:-}"
 OPEN_WEBUI_ADMIN_PASSWORD_FILE="${OPEN_WEBUI_ADMIN_PASSWORD_FILE:-/tmp/open-webui-admin-password}"
 ENABLE_MODEL_PULL="${ENABLE_MODEL_PULL:-true}"
 OPEN_WEBUI_VENV="${OPEN_WEBUI_VENV:-/workspace/open-webui-venv}"
+ENABLE_OPEN_WEBUI_FAST_RAG="${ENABLE_OPEN_WEBUI_FAST_RAG:-true}"
+OPEN_WEBUI_RAG_EMBEDDING_MODEL="${OPEN_WEBUI_RAG_EMBEDDING_MODEL:-nomic-embed-text:latest}"
+OPEN_WEBUI_RAG_EMBEDDING_BATCH_SIZE="${OPEN_WEBUI_RAG_EMBEDDING_BATCH_SIZE:-16}"
+OPEN_WEBUI_RAG_EMBEDDING_CONCURRENT_REQUESTS="${OPEN_WEBUI_RAG_EMBEDDING_CONCURRENT_REQUESTS:-1}"
+ENABLE_OPEN_WEBUI_PDF_AUTO_INDEX="${ENABLE_OPEN_WEBUI_PDF_AUTO_INDEX:-true}"
+OPEN_WEBUI_PDF_KNOWLEDGE_NAME="${OPEN_WEBUI_PDF_KNOWLEDGE_NAME:-nokia}"
+OPEN_WEBUI_PDF_KNOWLEDGE_DESCRIPTION="${OPEN_WEBUI_PDF_KNOWLEDGE_DESCRIPTION:-Git-backed PDF references}"
 ENABLE_OPENCLAW="${ENABLE_OPENCLAW:-true}"
 OPENCLAW_GATEWAY_PORT="${OPENCLAW_GATEWAY_PORT:-18789}"
 OPENCLAW_GATEWAY_BIND="${OPENCLAW_GATEWAY_BIND:-loopback}"
@@ -262,6 +269,22 @@ pull_model() {
   esac
 }
 
+pull_embedding_model() {
+  case "$(printf '%s' "$ENABLE_OPEN_WEBUI_FAST_RAG" | tr '[:upper:]' '[:lower:]')" in
+    true|1|yes|y|on) ;;
+    *)
+      log "Skipping RAG embedding model pull because ENABLE_OPEN_WEBUI_FAST_RAG=$ENABLE_OPEN_WEBUI_FAST_RAG."
+      return 0
+      ;;
+  esac
+
+  log "Pulling Ollama embedding model $OPEN_WEBUI_RAG_EMBEDDING_MODEL."
+  ollama pull "$OPEN_WEBUI_RAG_EMBEDDING_MODEL" || {
+    log "Embedding model pull failed; Open WebUI may fall back to slower local embeddings."
+    return 1
+  }
+}
+
 start_open_webui() {
   log "Starting Open WebUI on port $OPEN_WEBUI_PORT."
   export OLLAMA_BASE_URL="http://localhost:$OPEN_WEBUI_MEMORY_PROXY_PORT"
@@ -269,6 +292,31 @@ start_open_webui() {
   export DATA_DIR="${DATA_DIR:-/workspace/open-webui}"
   mkdir -p "$DATA_DIR"
   nohup "$OPEN_WEBUI_VENV/bin/open-webui" serve --host 0.0.0.0 --port "$OPEN_WEBUI_PORT" > /tmp/open-webui.log 2>&1 &
+}
+
+stop_open_webui() {
+  pkill -f "$OPEN_WEBUI_VENV/bin/open-webui serve --host 0.0.0.0 --port $OPEN_WEBUI_PORT" 2>/dev/null || true
+}
+
+restart_open_webui() {
+  log "Restarting Open WebUI so updated runtime configuration is active."
+  stop_open_webui
+  sleep 3
+  start_open_webui
+}
+
+wait_for_open_webui() {
+  log "Waiting for Open WebUI on http://localhost:$OPEN_WEBUI_PORT."
+  for _ in $(seq 1 180); do
+    if curl -fsS "http://localhost:$OPEN_WEBUI_PORT/api/version" >/dev/null 2>&1; then
+      log "Open WebUI is ready."
+      return 0
+    fi
+    sleep 1
+  done
+
+  log "Open WebUI did not become ready within 180 seconds."
+  return 1
 }
 
 start_open_webui_memory_proxy() {
@@ -281,6 +329,55 @@ start_open_webui_memory_proxy() {
     OPEN_WEBUI_MEMORY_PROXY_PORT="$OPEN_WEBUI_MEMORY_PROXY_PORT" \
     OLLAMA_UPSTREAM_URL="http://127.0.0.1:11434" \
     nohup python3 "$MEMORY_DIR/open_webui_memory_proxy.py" > /tmp/open-webui-memory-proxy.log 2>&1 &
+}
+
+configure_open_webui_fast_rag() {
+  case "$(printf '%s' "$ENABLE_OPEN_WEBUI_FAST_RAG" | tr '[:upper:]' '[:lower:]')" in
+    true|1|yes|y|on) ;;
+    *)
+      log "Skipping fast Open WebUI RAG config because ENABLE_OPEN_WEBUI_FAST_RAG=$ENABLE_OPEN_WEBUI_FAST_RAG."
+      return 0
+      ;;
+  esac
+
+  log "Configuring Open WebUI RAG embeddings to use Ollama model $OPEN_WEBUI_RAG_EMBEDDING_MODEL."
+  for _ in $(seq 1 60); do
+    if [ -f "${DATA_DIR:-/workspace/open-webui}/webui.db" ]; then
+      python3 - \
+        "${DATA_DIR:-/workspace/open-webui}/webui.db" \
+        "$OPEN_WEBUI_RAG_EMBEDDING_MODEL" \
+        "$OPEN_WEBUI_RAG_EMBEDDING_BATCH_SIZE" \
+        "$OPEN_WEBUI_RAG_EMBEDDING_CONCURRENT_REQUESTS" <<'PY' || true
+import json
+import sqlite3
+import sys
+import time
+
+db_path, embedding_model, batch_size, concurrent_requests = sys.argv[1:5]
+updates = {
+    "rag.embedding_engine": "ollama",
+    "rag.embedding_model": embedding_model,
+    "rag.ollama.base_url": "http://localhost:11434",
+    "rag.embedding_batch_size": int(batch_size),
+    "rag.embedding_concurrent_requests": int(concurrent_requests),
+    "rag.enable_async_embedding": True,
+}
+con = sqlite3.connect(db_path)
+now = int(time.time())
+for key, value in updates.items():
+    con.execute(
+        "insert into config (key, value, updated_at) values (?, ?, ?) "
+        "on conflict(key) do update set value = excluded.value, updated_at = excluded.updated_at",
+        (key, json.dumps(value), now),
+    )
+con.commit()
+PY
+      return 0
+    fi
+    sleep 1
+  done
+
+  log "Open WebUI database was not ready; skipping fast RAG configuration."
 }
 
 configure_open_webui_proxy_url() {
@@ -309,6 +406,31 @@ PY
   done
 
   log "Open WebUI database was not ready; skipping proxy URL configuration."
+}
+
+auto_index_open_webui_pdfs() {
+  case "$(printf '%s' "$ENABLE_OPEN_WEBUI_PDF_AUTO_INDEX" | tr '[:upper:]' '[:lower:]')" in
+    true|1|yes|y|on) ;;
+    *)
+      log "Skipping Open WebUI PDF auto-index because ENABLE_OPEN_WEBUI_PDF_AUTO_INDEX=$ENABLE_OPEN_WEBUI_PDF_AUTO_INDEX."
+      return 0
+      ;;
+  esac
+
+  if [ ! -f "$MEMORY_DIR/auto_index_open_webui_pdfs.py" ]; then
+    log "PDF auto-index script is missing; skipping."
+    return 0
+  fi
+
+  log "Starting Open WebUI PDF auto-index for $MEMORY_DIR/PDFS."
+  DATA_DIR="${DATA_DIR:-/workspace/open-webui}" \
+    MEMORY_DIR="$MEMORY_DIR" \
+    OPEN_WEBUI_URL="http://127.0.0.1:$OPEN_WEBUI_PORT" \
+    OPEN_WEBUI_PDF_KNOWLEDGE_NAME="$OPEN_WEBUI_PDF_KNOWLEDGE_NAME" \
+    OPEN_WEBUI_PDF_KNOWLEDGE_DESCRIPTION="$OPEN_WEBUI_PDF_KNOWLEDGE_DESCRIPTION" \
+    WEBUI_SECRET_KEY_FILE="$MEMORY_DIR/.webui_secret_key" \
+    nohup "$OPEN_WEBUI_VENV/bin/python" "$MEMORY_DIR/auto_index_open_webui_pdfs.py" \
+      > /tmp/open-webui-pdf-auto-index.log 2>&1 &
 }
 
 bootstrap_open_webui_admin() {
@@ -392,16 +514,27 @@ EOF
 install_packages
 ensure_repo
 chmod +x "$MEMORY_DIR/start.sh" "$MEMORY_DIR/load_memory.sh" "$MEMORY_DIR/sync_memory.sh" "$MEMORY_DIR/autosync_memory.sh"
+chmod +x "$MEMORY_DIR/auto_index_open_webui_pdfs.py" 2>/dev/null || true
 "$MEMORY_DIR/load_memory.sh"
 ensure_ollama
 start_ollama
 wait_for_ollama
 start_open_webui_memory_proxy
 pull_model
+pull_embedding_model || true
 if ensure_open_webui; then
   start_open_webui
+  wait_for_open_webui || true
   configure_open_webui_proxy_url
+  configure_open_webui_fast_rag
   bootstrap_open_webui_admin || true
+  case "$(printf '%s' "$ENABLE_OPEN_WEBUI_FAST_RAG" | tr '[:upper:]' '[:lower:]')" in
+    true|1|yes|y|on)
+      restart_open_webui
+      wait_for_open_webui || true
+      ;;
+  esac
+  auto_index_open_webui_pdfs
 else
   log "Open WebUI install failed. See /tmp/open-webui-install.log. Continuing with Ollama, SSH, and memory sync."
 fi
