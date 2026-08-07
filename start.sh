@@ -72,11 +72,13 @@ install_packages() {
 ensure_repo() {
   if [ -d "$MEMORY_DIR/.git" ]; then
     log "Updating memory repo at $MEMORY_DIR."
+    git -C "$MEMORY_DIR" config core.fileMode false
     git -C "$MEMORY_DIR" pull --rebase origin "$GITHUB_BRANCH"
   else
     log "Cloning memory repo into $MEMORY_DIR."
     mkdir -p "$(dirname "$MEMORY_DIR")"
     git clone --branch "$GITHUB_BRANCH" "$GITHUB_MEMORY_REPO" "$MEMORY_DIR"
+    git -C "$MEMORY_DIR" config core.fileMode false
   fi
 }
 
