@@ -83,7 +83,7 @@ The startup script:
 10. Configures Open WebUI to use the memory proxy as its Ollama base URL.
 11. Configures Open WebUI RAG embeddings to use Ollama for faster indexing.
 12. Optionally bootstraps an Open WebUI admin.
-13. Auto-indexes PDFs from `PDFS/` into the configured Open WebUI Knowledge collection.
+13. Auto-indexes PDFs from each subdirectory in `PDFS/` into matching Open WebUI Knowledge collections.
 14. Starts memory autosync.
 15. Starts OpenClaw if enabled.
 16. Prints connection details.
@@ -164,18 +164,24 @@ ENABLE_OPEN_WEBUI_FAST_RAG=true
 OPEN_WEBUI_RAG_EMBEDDING_MODEL=nomic-embed-text:latest
 ```
 
-PDF auto-indexing is enabled by default. It scans Git-backed PDFs in:
+PDF auto-indexing is enabled by default. It scans Git-backed PDF subdirectories in:
 
 ```text
 PDFS/
 ```
 
-and indexes them into an Open WebUI Knowledge collection:
+Each immediate subdirectory becomes an Open WebUI Knowledge collection with the same name. For example:
+
+```text
+PDFS/Nokia/*.pdf -> Knowledge: Nokia
+PDFS/Cisco/*.pdf -> Knowledge: Cisco
+```
+
+Top-level PDFs directly under `PDFS/` are skipped so the folder layout remains the source of truth.
 
 ```bash
 ENABLE_OPEN_WEBUI_PDF_AUTO_INDEX=true
-OPEN_WEBUI_PDF_KNOWLEDGE_NAME=nokia
-OPEN_WEBUI_PDF_KNOWLEDGE_DESCRIPTION="Git-backed PDF references"
+OPEN_WEBUI_PDF_KNOWLEDGE_DESCRIPTION_TEMPLATE="Git-backed PDF references from PDFS/{collection}"
 ```
 
 The auto-indexer stores extracted text, Open WebUI upload records, Chroma vectors, and status data only in the pod-local Open WebUI runtime directory. Those generated runtime files are disposable and must not be committed.

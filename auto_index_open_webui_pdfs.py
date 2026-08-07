@@ -15,8 +15,10 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", "/workspace/open-webui"))
 MEMORY_DIR = Path(os.environ.get("MEMORY_DIR", "/workspace/ollama-memory"))
 PDF_DIR = Path(os.environ.get("OPEN_WEBUI_PDF_DIR", str(MEMORY_DIR / "PDFS")))
 WEBUI_URL = os.environ.get("OPEN_WEBUI_URL", "http://127.0.0.1:3000").rstrip("/")
-KNOWLEDGE_NAME = os.environ.get("OPEN_WEBUI_PDF_KNOWLEDGE_NAME", "nokia")
-KNOWLEDGE_DESCRIPTION = os.environ.get("OPEN_WEBUI_PDF_KNOWLEDGE_DESCRIPTION", "Git-backed PDF references")
+KNOWLEDGE_DESCRIPTION_TEMPLATE = os.environ.get(
+    "OPEN_WEBUI_PDF_KNOWLEDGE_DESCRIPTION_TEMPLATE",
+    "Git-backed PDF references from PDFS/{collection}",
+)
 WEBUI_SECRET_KEY_FILE = Path(os.environ.get("WEBUI_SECRET_KEY_FILE", str(MEMORY_DIR / ".webui_secret_key")))
 LOG_PREFIX = "[open-webui-pdf-index]"
 
@@ -61,23 +63,24 @@ def get_admin_user_id(con: sqlite3.Connection) -> str:
     raise RuntimeError("No Open WebUI user exists yet; create or bootstrap an admin before PDF auto-indexing.")
 
 
-def ensure_knowledge(con: sqlite3.Connection, user_id: str) -> str:
+def ensure_knowledge(con: sqlite3.Connection, user_id: str, name: str) -> str:
     row = con.execute(
         "select id from knowledge where name = ? and user_id = ? order by created_at limit 1",
-        (KNOWLEDGE_NAME, user_id),
+        (name, user_id),
     ).fetchone()
     if row:
         return row["id"]
 
     now = int(time.time())
     knowledge_id = str(uuid.uuid4())
+    description = KNOWLEDGE_DESCRIPTION_TEMPLATE.format(collection=name)
     con.execute(
         "insert into knowledge (id, user_id, name, description, meta, created_at, updated_at, data) "
         "values (?, ?, ?, ?, ?, ?, ?, ?)",
-        (knowledge_id, user_id, KNOWLEDGE_NAME, KNOWLEDGE_DESCRIPTION, None, now, now, None),
+        (knowledge_id, user_id, name, description, None, now, now, None),
     )
     con.commit()
-    log(f"created knowledge '{KNOWLEDGE_NAME}' ({knowledge_id})")
+    log(f"created knowledge '{name}' ({knowledge_id})")
     return knowledge_id
 
 
@@ -206,6 +209,13 @@ def already_linked(con: sqlite3.Connection, knowledge_id: str, file_id: str) -> 
     return data.get("status") == "completed"
 
 
+def pdf_collection_name(path: Path) -> str | None:
+    relative = path.relative_to(PDF_DIR)
+    if len(relative.parts) < 2:
+        return None
+    return relative.parts[0]
+
+
 def main() -> int:
     wait_for_webui()
     if not PDF_DIR.is_dir():
@@ -219,22 +229,31 @@ def main() -> int:
 
     with db_connect() as con:
         user_id = get_admin_user_id(con)
-        knowledge_id = ensure_knowledge(con, user_id)
         token = create_token(user_id)
+        knowledge_ids: dict[str, str] = {}
 
         for pdf in pdfs:
+            collection_name = pdf_collection_name(pdf)
+            if not collection_name:
+                log(f"skipping top-level PDF without collection directory: {pdf.name}")
+                continue
+
+            if collection_name not in knowledge_ids:
+                knowledge_ids[collection_name] = ensure_knowledge(con, user_id, collection_name)
+            knowledge_id = knowledge_ids[collection_name]
+
             file_hash = sha256_file(pdf)
             existing = find_file_by_hash(con, file_hash)
             if existing and already_linked(con, knowledge_id, existing["id"]):
-                log(f"already indexed: {pdf.name}")
+                log(f"already indexed in '{collection_name}': {pdf.name}")
                 continue
 
             log(f"extracting: {pdf.name}")
             content = extract_pdf_text(pdf)
             file_id = upsert_file_record(con, user_id, knowledge_id, pdf, content, file_hash)
-            log(f"indexing {pdf.name} into knowledge '{KNOWLEDGE_NAME}'")
+            log(f"indexing {pdf.name} into knowledge '{collection_name}'")
             post_json(f"{WEBUI_URL}/api/v1/knowledge/{knowledge_id}/file/add", token, {"file_id": file_id})
-            log(f"indexed: {pdf.name}")
+            log(f"indexed in '{collection_name}': {pdf.name}")
 
     return 0
 
