@@ -631,6 +631,35 @@ path.write_text("\n".join(out) + "\n")
 PY
 }
 
+configure_anythingllm_frontend_env() {
+  local env_path="$ANYTHINGLLM_DIR/frontend/.env"
+  mkdir -p "$(dirname "$env_path")"
+  python3 - "$env_path" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+lines = path.read_text().splitlines() if path.exists() else []
+updates = {
+    "VITE_API_BASE": "'/api'",
+}
+seen = set()
+out = []
+for line in lines:
+    key = line.split("=", 1)[0].strip().lstrip("#").strip() if "=" in line else ""
+    if key in updates:
+        if key not in seen:
+            out.append(f"{key}={updates[key]}")
+            seen.add(key)
+        continue
+    out.append(line)
+for key, value in updates.items():
+    if key not in seen:
+        out.append(f"{key}={value}")
+path.write_text("\n".join(out) + "\n")
+PY
+}
+
 configure_anythingllm_workspaces() {
   local db_path="$ANYTHINGLLM_STORAGE_DIR/anythingllm.db"
   if [ ! -f "$db_path" ]; then
@@ -681,6 +710,8 @@ ensure_anythingllm() {
   export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
   cd "$ANYTHINGLLM_DIR"
   yarn setup
+  configure_anythingllm_env
+  configure_anythingllm_frontend_env
 
   log "Building AnythingLLM frontend."
   cd "$ANYTHINGLLM_DIR/frontend"
@@ -693,7 +724,6 @@ ensure_anythingllm() {
   yarn prisma migrate deploy || yarn prisma migrate reset --force --skip-seed || true
 
   configure_anythingllm_nginx
-  configure_anythingllm_env
   configure_anythingllm_workspaces
 
   mkdir -p "$ANYTHINGLLM_DEPLOY_DIR/logs"
