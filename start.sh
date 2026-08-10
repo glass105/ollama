@@ -535,23 +535,56 @@ configure_anythingllm_nginx() {
     return 0
   fi
 
-  if grep -q "AnythingLLM comparison UI" /etc/nginx/nginx.conf; then
-    return 0
-  fi
-
   log "Adding nginx proxy from port $ANYTHINGLLM_PUBLIC_PORT to AnythingLLM port $ANYTHINGLLM_INTERNAL_PORT."
   python3 - /etc/nginx/nginx.conf "$ANYTHINGLLM_PUBLIC_PORT" "$ANYTHINGLLM_INTERNAL_PORT" <<'PY'
 from pathlib import Path
+import re
 import sys
 
 path = Path(sys.argv[1])
-public_port = sys.argv[2]
+port = sys.argv[2]
 internal_port = sys.argv[3]
 text = path.read_text()
+
+def remove_matching_servers(src: str) -> str:
+    out = []
+    i = 0
+    pattern = re.compile(r'(?m)^[ \t]*server[ \t]*\{')
+    while True:
+        match = pattern.search(src, i)
+        if not match:
+            out.append(src[i:])
+            break
+        start = match.start()
+        brace = src.find("{", match.start(), match.end() + 1)
+        depth = 0
+        end = None
+        j = brace
+        while j < len(src):
+            if src[j] == "{":
+                depth += 1
+            elif src[j] == "}":
+                depth -= 1
+                if depth == 0:
+                    end = j + 1
+                    break
+            j += 1
+        if end is None:
+            out.append(src[i:])
+            break
+        block = src[start:end]
+        if re.search(rf'(?m)^[ \t]*listen[ \t]+{re.escape(port)}(?:[ \t;]|$)', block):
+            out.append(src[i:start])
+        else:
+            out.append(src[i:end])
+        i = end
+    return "".join(out)
+
+cleaned = remove_matching_servers(text)
 block = f"""
     # AnythingLLM comparison UI
     server {{
-        listen {public_port};
+        listen {port};
 
         location / {{
             add_header Cache-Control no-cache;
@@ -568,17 +601,15 @@ block = f"""
             proxy_send_timeout 605;
             proxy_read_timeout 605;
             send_timeout 605;
-            proxy_pass http://localhost:{internal_port};
+            proxy_pass http://127.0.0.1:{internal_port};
         }}
-
-        include snippets/nginx-error-handling.conf;
     }}
 """
-if "http {" in text:
-    text = text.replace("http {", "http {\n" + block, 1)
+if "http {" in cleaned:
+    cleaned = cleaned.replace("http {", "http {\n" + block, 1)
 else:
-    text += "\nhttp {\n" + block + "\n}\n"
-path.write_text(text)
+    cleaned += "\nhttp {\n" + block + "\n}\n"
+path.write_text(cleaned)
 PY
   nginx -t
   nginx -s reload || service nginx restart || true
@@ -860,6 +891,16 @@ Security:
 EOF
 }
 
+if [ "${START_ONLY_ANYTHINGLLM:-false}" = "true" ]; then
+  ensure_anythingllm > /tmp/anythingllm-setup.log 2>&1 || {
+    log "AnythingLLM setup failed. See /tmp/anythingllm-setup.log and ${ANYTHINGLLM_DEPLOY_DIR}/logs/server.log if it started."
+    exit 1
+  }
+  wait_for_anythingllm
+  auto_index_anythingllm_pdfs
+  exit 0
+fi
+
 install_packages
 ensure_repo
 chmod +x "$MEMORY_DIR/start.sh" "$MEMORY_DIR/load_memory.sh" "$MEMORY_DIR/sync_memory.sh" "$MEMORY_DIR/autosync_memory.sh"
@@ -889,7 +930,7 @@ else
   log "Open WebUI install failed. See /tmp/open-webui-install.log. Continuing with Ollama, SSH, and memory sync."
 fi
 start_autosync
-ensure_anythingllm || log "AnythingLLM setup failed. See ${ANYTHINGLLM_DEPLOY_DIR}/logs/server.log if it started."
+ensure_anythingllm > /tmp/anythingllm-setup.log 2>&1 || log "AnythingLLM setup failed. See /tmp/anythingllm-setup.log and ${ANYTHINGLLM_DEPLOY_DIR}/logs/server.log if it started."
 wait_for_anythingllm || true
 auto_index_anythingllm_pdfs
 if ensure_openclaw; then
