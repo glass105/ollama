@@ -19,3 +19,5 @@
 - AnythingLLM frontend builds must use relative API calls (`VITE_API_BASE='/api'`) so browser clients do not try to call `localhost:3001`.
 - AnythingLLM vector stores, LanceDB files, SQLite databases, uploaded runtime files, generated API keys, and logs are runtime state and must not be committed.
 - For CMM-specific questions in AnythingLLM, prefer a prompt that restricts retrieval to `cmm_cli_reference_guide.pdf`; otherwise retrieval may mix CMM and CMG documents in the same workspace.
+- RunPod network storage may be attached only after an explicit yes/no prompt. When enabled, use network volume ID `390eu4ykoc` only for persistent RAG/vector state, mounted away from `/workspace` such as `/runpod-volume`.
+- Even with network storage enabled, keep `volumeInGb=0` and do not store models, secrets, keys, tokens, logs, caches, auth-bearing databases, or OpenClaw runtime state on GitHub.
