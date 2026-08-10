@@ -2,6 +2,33 @@
 
 Generated: 2026-08-07 20:33:01 UTC
 
+Verified update: 2026-08-10 runtime indexed five documents in the `Nokia` workspace:
+
+- `CMG_CLI_Reference_Guide.pdf`
+- `CMG_Configuration_Guide_part_1.pdf`
+- `CMG_Configuration_Guide_part_2.pdf`
+- `cmm_cli_reference_guide.pdf`
+- `sheet-Alarms.json`
+
+The 2026-08-10 runtime had 1847 total vectors in AnythingLLM:
+
+- `CMG_CLI_Reference_Guide.pdf`: 780 vectors
+- `CMG_Configuration_Guide_part_1.pdf`: 137 vectors
+- `CMG_Configuration_Guide_part_2.pdf`: 120 vectors
+- `cmm_cli_reference_guide.pdf`: 722 vectors
+- `sheet-Alarms.json`: 88 vectors
+
+Runtime vector databases and extracted JSON files are not committed to Git.
+
+For a CMM-only retrieval prompt, use:
+
+```text
+Use only the indexed document named cmm_cli_reference_guide.pdf.
+Do not use CMG_CLI_Reference_Guide.pdf.
+Do not use CMG_Configuration_Guide_part_1.pdf.
+Do not use CMG_Configuration_Guide_part_2.pdf.
+```
+
 | Workspace | Title | Source | Words | Token Estimate | Published | Stored JSON |
 |---|---|---|---:|---:|---|---|
 | Nokia | CMG_CLI_Reference_Guide.pdf | file:///workspace/anything-llm/collector/hotdir/CMG_CLI_Reference_Guide.pdf | 1030941 | 794495 | 8/7/2026, 6:53:47 PM | custom-documents/CMG_CLI_Reference_Guide.pdf-1c018471-9197-4447-9228-6dea7465ea67.json |
