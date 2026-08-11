@@ -10,12 +10,13 @@ Use the RunPod API key from:
 C:\Users\joerc\OneDrive\Documents\AI-Karate\.env
 
 Before creating the pod, ask me:
-"Do you want to restore persistent RAG/vector state from the RunPod S3-compatible cache?"
+"Do you want to include persistent RAG/vector storage for this pod creation?"
 
 If I answer yes:
 - Use RunPod S3/RAG cache ID `lp8wr68ped`.
 - Do not attach RunPod network storage.
 - Keep volumeInGb=0.
+- Set `ENABLE_RAG_S3_CACHE=true` in the pod env.
 - Use region `us-nc-1`.
 - Use endpoint `https://s3api-us-nc-1.runpod.io`.
 - Use bucket `lp8wr68ped`.
@@ -26,6 +27,7 @@ If I answer yes:
 - S3 credentials must come from local env, RunPod secrets, or manual secure input; never commit them.
 
 If I answer no:
+- Set `ENABLE_RAG_S3_CACHE=false` in the pod env.
 - Do not restore a RAG cache.
 - Keep the setup fully disposable and rebuild RAG/vector state from Git-backed PDFs on startup.
 
