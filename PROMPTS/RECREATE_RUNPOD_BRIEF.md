@@ -7,7 +7,7 @@ Recreate my RunPod Ollama environment from:
 https://github.com/glass105/ollama.git
 
 Use the RunPod API key from:
-C:\Users\joerc\OneDrive\Documents\AI-Karate\.env
+C:\Users\joerc\OneDrive\Documents\ollama\.env
 
 Before creating the pod, ask me:
 "Do you want to include persistent RAG/vector storage for this pod creation?"

@@ -10,7 +10,7 @@ Goal: recreate my disposable RunPod AI pod setup from the GitHub repo:
 https://github.com/glass105/ollama.git
 
 Use the RunPod API key already stored in:
-C:\Users\joerc\OneDrive\Documents\AI-Karate\.env
+C:\Users\joerc\OneDrive\Documents\ollama\.env
 
 Hard rules:
 - Do not use RunPod network storage.
