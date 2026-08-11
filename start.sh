@@ -48,9 +48,84 @@ ANYTHINGLLM_STORAGE_DIR="${ANYTHINGLLM_STORAGE_DIR:-/workspace/anything-llm/serv
 ANYTHINGLLM_JWT_SECRET="${ANYTHINGLLM_JWT_SECRET:-runpod-anythingllm-local-compare}"
 ANYTHINGLLM_API_KEY_FILE="${ANYTHINGLLM_API_KEY_FILE:-/tmp/anythingllm-api-key}"
 ANYTHINGLLM_PDF_DIR="${ANYTHINGLLM_PDF_DIR:-$MEMORY_DIR/PDFS}"
+ENABLE_RAG_S3_CACHE="${ENABLE_RAG_S3_CACHE:-false}"
+RAG_S3_CACHE_ID="${RAG_S3_CACHE_ID:-lp8wr68ped}"
+RAG_S3_REGION="${RAG_S3_REGION:-us-nc-1}"
+RAG_S3_ENDPOINT="${RAG_S3_ENDPOINT:-https://s3api-us-nc-1.runpod.io}"
+RAG_S3_BUCKET="${RAG_S3_BUCKET:-lp8wr68ped}"
+RAG_S3_PREFIX="${RAG_S3_PREFIX:-ollama-rag-cache}"
+RAG_S3_ARCHIVE_NAME="${RAG_S3_ARCHIVE_NAME:-rag-vector-state.tar.gz}"
 
 log() {
   echo "[start] $*"
+}
+
+restore_rag_cache() {
+  case "$(printf '%s' "$ENABLE_RAG_S3_CACHE" | tr '[:upper:]' '[:lower:]')" in
+    true|1|yes|y|on) ;;
+    *) return 0 ;;
+  esac
+
+  if [ ! -f "$MEMORY_DIR/restore_rag_cache.sh" ]; then
+    log "RAG cache restore requested but restore_rag_cache.sh is missing."
+    return 0
+  fi
+
+  log "Restoring S3 RAG cache from bucket $RAG_S3_BUCKET using cache ID $RAG_S3_CACHE_ID."
+  DATA_DIR="${DATA_DIR:-/workspace/open-webui}" \
+    OPEN_WEBUI_DATA_DIR="${DATA_DIR:-/workspace/open-webui}" \
+    ANYTHINGLLM_STORAGE_DIR="$ANYTHINGLLM_STORAGE_DIR" \
+    ENABLE_RAG_S3_CACHE="$ENABLE_RAG_S3_CACHE" \
+    RAG_S3_CACHE_ID="$RAG_S3_CACHE_ID" \
+    RAG_S3_REGION="$RAG_S3_REGION" \
+    RAG_S3_ENDPOINT="$RAG_S3_ENDPOINT" \
+    RAG_S3_BUCKET="$RAG_S3_BUCKET" \
+    RAG_S3_PREFIX="$RAG_S3_PREFIX" \
+    RAG_S3_ARCHIVE_NAME="$RAG_S3_ARCHIVE_NAME" \
+    RAG_S3_ACCESS_KEY_ID="${RAG_S3_ACCESS_KEY_ID:-}" \
+    RAG_S3_SECRET_ACCESS_KEY="${RAG_S3_SECRET_ACCESS_KEY:-}" \
+    RAG_S3_SESSION_TOKEN="${RAG_S3_SESSION_TOKEN:-}" \
+    bash "$MEMORY_DIR/restore_rag_cache.sh" > /tmp/restore-rag-cache.log 2>&1 || {
+      log "RAG cache restore failed. See /tmp/restore-rag-cache.log."
+      return 0
+    }
+}
+
+save_rag_cache() {
+  case "$(printf '%s' "$ENABLE_RAG_S3_CACHE" | tr '[:upper:]' '[:lower:]')" in
+    true|1|yes|y|on) ;;
+    *) return 0 ;;
+  esac
+
+  if [ ! -f "$MEMORY_DIR/save_rag_cache.sh" ]; then
+    log "RAG cache save requested but save_rag_cache.sh is missing."
+    return 0
+  fi
+
+  log "Saving S3 RAG cache to bucket $RAG_S3_BUCKET using cache ID $RAG_S3_CACHE_ID."
+  DATA_DIR="${DATA_DIR:-/workspace/open-webui}" \
+    OPEN_WEBUI_DATA_DIR="${DATA_DIR:-/workspace/open-webui}" \
+    ANYTHINGLLM_STORAGE_DIR="$ANYTHINGLLM_STORAGE_DIR" \
+    ENABLE_RAG_S3_CACHE="$ENABLE_RAG_S3_CACHE" \
+    RAG_S3_CACHE_ID="$RAG_S3_CACHE_ID" \
+    RAG_S3_REGION="$RAG_S3_REGION" \
+    RAG_S3_ENDPOINT="$RAG_S3_ENDPOINT" \
+    RAG_S3_BUCKET="$RAG_S3_BUCKET" \
+    RAG_S3_PREFIX="$RAG_S3_PREFIX" \
+    RAG_S3_ARCHIVE_NAME="$RAG_S3_ARCHIVE_NAME" \
+    RAG_S3_ACCESS_KEY_ID="${RAG_S3_ACCESS_KEY_ID:-}" \
+    RAG_S3_SECRET_ACCESS_KEY="${RAG_S3_SECRET_ACCESS_KEY:-}" \
+    RAG_S3_SESSION_TOKEN="${RAG_S3_SESSION_TOKEN:-}" \
+    bash "$MEMORY_DIR/save_rag_cache.sh" > /tmp/save-rag-cache.log 2>&1 || {
+      log "RAG cache save failed. See /tmp/save-rag-cache.log."
+      return 0
+    }
+}
+
+save_rag_cache_on_shutdown() {
+  log "Shutdown received; attempting final RAG cache save."
+  save_rag_cache
+  exit 0
 }
 
 install_packages() {
@@ -906,6 +981,9 @@ ensure_repo
 chmod +x "$MEMORY_DIR/start.sh" "$MEMORY_DIR/load_memory.sh" "$MEMORY_DIR/sync_memory.sh" "$MEMORY_DIR/autosync_memory.sh"
 chmod +x "$MEMORY_DIR/auto_index_open_webui_pdfs.py" 2>/dev/null || true
 chmod +x "$MEMORY_DIR/auto_index_anythingllm_pdfs.py" 2>/dev/null || true
+chmod +x "$MEMORY_DIR/restore_rag_cache.sh" 2>/dev/null || true
+chmod +x "$MEMORY_DIR/save_rag_cache.sh" 2>/dev/null || true
+trap save_rag_cache_on_shutdown INT TERM
 "$MEMORY_DIR/load_memory.sh"
 ensure_ollama
 start_ollama
@@ -914,6 +992,7 @@ start_open_webui_memory_proxy
 pull_model
 pull_embedding_model || true
 if ensure_open_webui; then
+  restore_rag_cache
   start_open_webui
   wait_for_open_webui || true
   configure_open_webui_proxy_url
@@ -931,8 +1010,13 @@ else
 fi
 start_autosync
 ensure_anythingllm > /tmp/anythingllm-setup.log 2>&1 || log "AnythingLLM setup failed. See /tmp/anythingllm-setup.log and ${ANYTHINGLLM_DEPLOY_DIR}/logs/server.log if it started."
+restore_rag_cache
 wait_for_anythingllm || true
 auto_index_anythingllm_pdfs
+(
+  sleep "${RAG_S3_SAVE_DELAY_SECONDS:-900}"
+  save_rag_cache
+) &
 if ensure_openclaw; then
   configure_openclaw || true
   start_openclaw_gateway || true

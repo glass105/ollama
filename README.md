@@ -66,6 +66,7 @@ git clone https://github.com/glass105/ollama.git ollama-memory || true && \
 cd /workspace/ollama-memory && \
 git pull && \
 chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh && \
+(chmod +x restore_rag_cache.sh save_rag_cache.sh auto_index_open_webui_pdfs.py auto_index_anythingllm_pdfs.py 2>/dev/null || true) && \
 bash start.sh
 ```
 
@@ -232,6 +233,29 @@ PDFS/Nokia/*.pdf -> AnythingLLM workspace: Nokia
 ```
 
 It generates a pod-local AnythingLLM API key in `/tmp/anythingllm-api-key`, uploads each PDF into its workspace, and lets AnythingLLM recreate the local LanceDB vector database. The API key and LanceDB data are disposable runtime state and must not be committed.
+
+## Optional S3 RAG Cache
+
+RunPod network volumes are not used by default. For portable RAG/vector reuse across datacenters, startup can optionally restore and save a sanitized RAG snapshot through RunPod's S3-compatible API.
+
+The selected cache target is:
+
+```bash
+RAG_S3_REGION=us-nc-1
+RAG_S3_ENDPOINT=https://s3api-us-nc-1.runpod.io
+RAG_S3_BUCKET=lp8wr68ped
+RAG_S3_PREFIX=ollama-rag-cache
+```
+
+Enable it only when S3 credentials are provided securely:
+
+```bash
+ENABLE_RAG_S3_CACHE=true
+RAG_S3_ACCESS_KEY_ID=<secret>
+RAG_S3_SECRET_ACCESS_KEY=<secret>
+```
+
+The cache scripts store only vector/RAG-facing artifacts and sanitized manifests. They do not intentionally store model files, OpenClaw runtime state, logs, tokens, generated API keys, or full auth databases.
 
 The AnythingLLM URL is:
 

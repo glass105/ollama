@@ -16,6 +16,10 @@ If I answer yes:
 - Use RunPod S3/RAG cache ID `lp8wr68ped`.
 - Do not attach RunPod network storage.
 - Keep volumeInGb=0.
+- Use region `us-nc-1`.
+- Use endpoint `https://s3api-us-nc-1.runpod.io`.
+- Use bucket `lp8wr68ped`.
+- Use prefix `ollama-rag-cache`.
 - Restore the RAG/vector snapshot from S3-compatible object storage into pod-local paths.
 - Use object storage only for RAG/vector snapshots and manifests.
 - Do not store models, secrets, keys, tokens, logs, auth DBs, OpenClaw runtime state, or general app caches in the RAG cache.
@@ -49,8 +53,18 @@ Use qwen3-coder:30b as the default model.
 
 Set env for Ollama, Open WebUI, AnythingLLM, OpenClaw, Git-backed Markdown memory, PDF auto-indexing, optional S3 RAG-cache restore/upload, and admin bootstrap. Generate OpenClaw tokens locally and never commit them.
 
+If S3 RAG cache is enabled, include:
+- ENABLE_RAG_S3_CACHE=true
+- RAG_S3_CACHE_ID=lp8wr68ped
+- RAG_S3_REGION=us-nc-1
+- RAG_S3_ENDPOINT=https://s3api-us-nc-1.runpod.io
+- RAG_S3_BUCKET=lp8wr68ped
+- RAG_S3_PREFIX=ollama-rag-cache
+- RAG_S3_ACCESS_KEY_ID=<secret, do not commit>
+- RAG_S3_SECRET_ACCESS_KEY=<secret, do not commit>
+
 Startup command:
-cd /workspace && git clone https://github.com/glass105/ollama.git ollama-memory || true && cd /workspace/ollama-memory && git pull && chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh auto_index_open_webui_pdfs.py auto_index_anythingllm_pdfs.py && bash start.sh
+cd /workspace && git clone https://github.com/glass105/ollama.git ollama-memory || true && cd /workspace/ollama-memory && git pull && chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh restore_rag_cache.sh save_rag_cache.sh auto_index_open_webui_pdfs.py auto_index_anythingllm_pdfs.py && bash start.sh
 
 Preserve RunPod SSH by launching /start.sh in the background before repo startup if needed.
 

@@ -81,7 +81,7 @@ Pipeline:
    git clone https://github.com/glass105/ollama.git ollama-memory || true && \
    cd /workspace/ollama-memory && \
    git pull && \
-   chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh && \
+   chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh restore_rag_cache.sh save_rag_cache.sh auto_index_open_webui_pdfs.py auto_index_anythingllm_pdfs.py && \
    bash start.sh
 8. If SSH is needed, preserve RunPod default startup by launching /start.sh in the background before the repo startup command.
 9. Poll the pod until public IP and SSH port are available.

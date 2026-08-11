@@ -15,6 +15,9 @@ open-webui/
 *.sqlite
 current_context.md
 tmp/
+rag-cache/
+rag-vector-state*.tar.gz
+rag-vector-state-*/
 secrets/
 id_rsa
 id_ed25519
