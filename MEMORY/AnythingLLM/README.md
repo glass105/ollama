@@ -14,4 +14,6 @@ In the verified 2026-08-10 runtime, AnythingLLM ran on internal port `3010`, was
 
 The RunPod base image may already define nginx port `3001` for another UI. Startup must remove existing `listen 3001` nginx server blocks before adding the AnythingLLM proxy, or the public AnythingLLM URL can incorrectly display Open WebUI.
 
-RunPod network volume `390eu4ykoc` may be used as an opt-in persistent RAG/vector-state target. It should store vector-facing snapshots or reusable RAG state only, not secrets, generated API keys, full auth databases, model files, logs, or OpenClaw runtime state.
+RunPod network volumes are no longer part of the recreate path. Persistent AnythingLLM RAG/vector reuse should use the RunPod S3-compatible cache target `lp8wr68ped`.
+
+The S3 RAG cache should store only vector-facing snapshots and manifests, such as AnythingLLM LanceDB state, document JSON, vector cache, and sanitized manifest files. It must not store secrets, generated API keys, full auth databases, model files, logs, or OpenClaw runtime state.

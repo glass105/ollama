@@ -10,18 +10,20 @@ Use the RunPod API key from:
 C:\Users\joerc\OneDrive\Documents\AI-Karate\.env
 
 Before creating the pod, ask me:
-"Do you want to attach RunPod network storage for persistent RAG/vector state?"
+"Do you want to restore persistent RAG/vector state from the RunPod S3-compatible cache?"
 
 If I answer yes:
-- Use networkVolumeId=390eu4ykoc.
+- Use RunPod S3/RAG cache ID `lp8wr68ped`.
+- Do not attach RunPod network storage.
 - Keep volumeInGb=0.
-- Mount the network volume at /runpod-volume.
-- Use it only for RAG/vector state, not models, secrets, keys, tokens, logs, caches, DBs with auth data, or OpenClaw runtime state.
-- Use a path such as /runpod-volume/ollama-rag-state.
+- Restore the RAG/vector snapshot from S3-compatible object storage into pod-local paths.
+- Use object storage only for RAG/vector snapshots and manifests.
+- Do not store models, secrets, keys, tokens, logs, auth DBs, OpenClaw runtime state, or general app caches in the RAG cache.
+- S3 credentials must come from local env, RunPod secrets, or manual secure input; never commit them.
 
 If I answer no:
-- Do not attach network storage.
-- Keep the setup fully disposable and rebuild RAG/vector state on startup.
+- Do not restore a RAG cache.
+- Keep the setup fully disposable and rebuild RAG/vector state from Git-backed PDFs on startup.
 
 Approved GPUs only:
 - NVIDIA RTX 4000 Ada Generation
@@ -40,11 +42,12 @@ Create pod:
 - gpuTypePriority: custom
 - containerDiskInGb: 120
 - volumeInGb: 0
+- no networkVolumeId
 - ports: 3000/http, 3001/http, 18789/http, 22/tcp
 
 Use qwen3-coder:30b as the default model.
 
-Set env for Ollama, Open WebUI, AnythingLLM, OpenClaw, Git-backed Markdown memory, PDF auto-indexing, and admin bootstrap. Generate OpenClaw tokens locally and never commit them.
+Set env for Ollama, Open WebUI, AnythingLLM, OpenClaw, Git-backed Markdown memory, PDF auto-indexing, optional S3 RAG-cache restore/upload, and admin bootstrap. Generate OpenClaw tokens locally and never commit them.
 
 Startup command:
 cd /workspace && git clone https://github.com/glass105/ollama.git ollama-memory || true && cd /workspace/ollama-memory && git pull && chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh auto_index_open_webui_pdfs.py auto_index_anythingllm_pdfs.py && bash start.sh
@@ -59,13 +62,13 @@ Verify:
 - /workspace/current_context.md exists
 - Open WebUI uses the memory proxy
 - AnythingLLM uses Ollama/qwen3-coder:30b
-- PDF/RAG state is loaded or incrementally indexed
+- PDF/RAG state is restored from S3 cache or rebuilt/incrementally indexed from PDFs
 
 Final output:
 - Pod ID
 - GPU used
 - volumeInGb
-- whether network storage was attached
+- whether S3 RAG cache restore was used
 - SSH command
 - Open WebUI URL
 - AnythingLLM URL
