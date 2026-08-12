@@ -207,7 +207,7 @@ cd /workspace/ollama-memory
 bash anythingllm_query.sh Nokia "Using cmm_cli_reference_guide.pdf, what command shows all interfaces?"
 ```
 
-For CMM, CMG, Nokia, PDF, XLSX, command, and alarm questions, OpenClaw is instructed to run that helper first, then answer from the returned AnythingLLM response and source metadata. The helper uses the pod-local AnythingLLM API key at `/tmp/anythingllm-api-key` and must not print or commit it.
+For CMM, CMG, Nokia, PDF, XLSX, command, interface, alarm, guide, and reference questions, OpenClaw is instructed to run that helper first, then answer from the returned AnythingLLM response and source metadata. OpenClaw should not answer these from model memory. The helper uses the pod-local AnythingLLM API key at `/tmp/anythingllm-api-key` and must not print or commit it.
 
 ## Manual Sync
 

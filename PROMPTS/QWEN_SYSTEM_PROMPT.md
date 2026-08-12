@@ -8,13 +8,13 @@ You are helping maintain a disposable RunPod AI pod running Ollama, `qwen3-coder
 
 AnythingLLM is the primary web UI and RAG layer. Do not include Open WebUI in future pod creation or startup pipelines unless the human explicitly asks to re-add it.
 
-For CMM, CMG, Nokia, PDF, XLSX, command, alarm, or other reference-document questions from OpenClaw, use the AnythingLLM API helper before answering:
+For CMM, CMG, Nokia, PDF, XLSX, command, interface, alarm, guide, or other reference-document questions from OpenClaw, use the AnythingLLM API helper before answering:
 
 ```bash
 /workspace/ollama-memory/anythingllm_query.sh Nokia "<question>"
 ```
 
-Do not read LanceDB/vector files directly and never print AnythingLLM API keys.
+Do not answer those questions from model memory. Use the helper output as source of truth. If the helper fails, report the non-secret error instead of inventing a fallback answer. Do not read LanceDB/vector files directly and never print AnythingLLM API keys.
 
 Follow `MEMORY/RunPod/DECISIONS.md` as the source of architectural decisions.
 

@@ -250,31 +250,49 @@ EOF
 # AnythingLLM RAG Tool
 
 AnythingLLM is the primary RAG layer for Git-backed PDFs and XLSX files.
-For questions about PDF, XLSX, CMM, CMG, Nokia, commands, alarms, or reference documents, call the local helper before answering:
+Open WebUI is not part of this setup.
+
+Mandatory retrieval gate:
+For any user question about PDF, XLSX, CMM, CMG, Nokia, commands, interfaces, alarms, guide content, or reference documents, do not answer from model memory or general knowledge. First execute the local AnythingLLM helper:
 
 ```bash
 /workspace/ollama-memory/anythingllm_query.sh Nokia "<question>"
 ```
 
-Use the returned answer and sources in your reply. Do not read LanceDB/vector files directly. Do not print API keys or token files.
-If the user asks whether you can read or search a guide, answer visibly and offer to use the helper.
+Use the helper output as the source of truth. Return the command names and parameters exactly as the helper provides them. Do not invent commands such as `show interface`.
+If the helper fails, say that the AnythingLLM helper failed and include the non-secret error summary; do not make up a fallback answer.
+Do not read LanceDB/vector files directly. Do not print API keys or token files.
+If the user asks whether you can read or search a guide, answer "Yes, through AnythingLLM" and run the helper when a concrete question is present.
 
 EOF
   for workspace_file in AGENTS.md SOUL.md HEARTBEAT.md TOOLS.md; do
     local workspace_path="/root/.openclaw/workspace/$workspace_file"
     touch "$workspace_path"
-    if ! grep -q "Disposable RunPod WebChat Visible Reply Rule" "$workspace_path"; then
-      local workspace_tmp
-      workspace_tmp="$(mktemp)"
-      cat "$visible_reply_rule" "$workspace_path" > "$workspace_tmp"
-      mv "$workspace_tmp" "$workspace_path"
-    fi
-    if ! grep -q "AnythingLLM RAG Tool" "$workspace_path"; then
-      local tool_tmp
-      tool_tmp="$(mktemp)"
-      cat "$anythingllm_tool_rule" "$workspace_path" > "$tool_tmp"
-      mv "$tool_tmp" "$workspace_path"
-    fi
+    WORKSPACE_PATH="$workspace_path" \
+      VISIBLE_REPLY_RULE="$visible_reply_rule" \
+      ANYTHINGLLM_TOOL_RULE="$anythingllm_tool_rule" \
+      python3 - <<'PY'
+import os
+import re
+from pathlib import Path
+
+path = Path(os.environ["WORKSPACE_PATH"])
+text = path.read_text(errors="ignore") if path.exists() else ""
+patterns = [
+    r"\A# Disposable RunPod WebChat Visible Reply Rule\n.*?(?=\n# |\Z)",
+    r"\A# AnythingLLM RAG Tool\n.*?(?=\n# |\Z)",
+    r"\n# Disposable RunPod WebChat Visible Reply Rule\n.*?(?=\n# |\Z)",
+    r"\n# AnythingLLM RAG Tool\n.*?(?=\n# |\Z)",
+]
+for pattern in patterns:
+    text = re.sub(pattern, "\n", text, flags=re.S)
+text = text.lstrip()
+prefix = (
+    Path(os.environ["VISIBLE_REPLY_RULE"]).read_text()
+    + Path(os.environ["ANYTHINGLLM_TOOL_RULE"]).read_text()
+)
+path.write_text(prefix + text)
+PY
   done
   python3 - <<'PY'
 from pathlib import Path
