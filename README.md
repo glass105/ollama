@@ -209,6 +209,8 @@ bash anythingllm_query.sh Nokia "Using cmm_cli_reference_guide.pdf, what command
 
 For CMM, CMG, Nokia, PDF, XLSX, command, interface, alarm, guide, and reference questions, OpenClaw is instructed to run that helper first, then answer from the returned AnythingLLM response and source metadata. OpenClaw should not answer these from model memory. The helper uses the pod-local AnythingLLM API key at `/tmp/anythingllm-api-key` and must not print or commit it.
 
+Startup also runs an OpenClaw-only Ollama RAG proxy on `127.0.0.1:11437`. OpenClaw is configured to use that proxy as its Ollama base URL. The proxy detects CMM/CMG/Nokia/reference prompts, asks AnythingLLM first, injects the returned RAG answer as mandatory context, and then forwards the request to real Ollama on `127.0.0.1:11434`. AnythingLLM continues to use real Ollama directly, so there is no retrieval loop.
+
 ## Manual Sync
 
 Run:

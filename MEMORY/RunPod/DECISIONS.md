@@ -30,3 +30,4 @@
 - For precise CMM command answers, prompts should explicitly name `cmm_cli_reference_guide.pdf` to avoid mixing CMG and CMM retrieval results from the shared `Nokia` collection/workspace.
 - OpenClaw should access AnythingLLM RAG indirectly with `/workspace/ollama-memory/anythingllm_query.sh <workspace> <question>`. AnythingLLM owns ingestion/retrieval; OpenClaw must not read LanceDB/vector files directly.
 - OpenClaw must not answer CMM, CMG, Nokia, PDF, XLSX, command, interface, alarm, guide, or reference questions from model memory. It must call the AnythingLLM helper first, use that output as source of truth, and report helper failures instead of inventing fallback commands.
+- OpenClaw should use the OpenClaw-only Ollama RAG proxy at `127.0.0.1:11437`; the proxy calls AnythingLLM for reference prompts and forwards augmented requests to real Ollama at `127.0.0.1:11434`.

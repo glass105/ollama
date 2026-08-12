@@ -44,6 +44,7 @@ Pipeline:
    - auto_index_anythingllm_pdfs.py
    - query_anythingllm.py
    - anythingllm_query.sh
+   - openclaw_ollama_rag_proxy.py
 4. Ensure memory loads locally with load_memory.sh.
 5. Ask whether to enable the S3 RAG cache. If yes, use cache ID `lp8wr68ped`; if no, rebuild RAG from Git-backed PDFs/XLSX files.
 6. Create a RunPod pod using REST API:
@@ -85,6 +86,8 @@ Pipeline:
    - OPENCLAW_GATEWAY_BIND=lan
    - OPENCLAW_GATEWAY_AUTH=token
    - OPENCLAW_GATEWAY_TOKEN=<generate a random token locally, do not commit it>
+   - ENABLE_OPENCLAW_RAG_PROXY=true
+   - OPENCLAW_RAG_PROXY_PORT=11437
 8. If S3 RAG cache is enabled, include:
    - ENABLE_RAG_S3_CACHE=true
    - RAG_S3_CACHE_ID=lp8wr68ped
@@ -99,7 +102,7 @@ Pipeline:
    git clone https://github.com/glass105/ollama.git ollama-memory || true && \
    cd /workspace/ollama-memory && \
    git pull && \
-   chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh restore_rag_cache.sh save_rag_cache.sh auto_index_anythingllm_pdfs.py query_anythingllm.py anythingllm_query.sh && \
+   chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh restore_rag_cache.sh save_rag_cache.sh auto_index_anythingllm_pdfs.py query_anythingllm.py anythingllm_query.sh openclaw_ollama_rag_proxy.py && \
    bash start.sh
 10. If SSH is needed, preserve RunPod default startup by launching /start.sh in the background before the repo startup command.
 11. Poll the pod until public IP and SSH port are available.
@@ -113,6 +116,7 @@ Pipeline:
     - AnythingLLM responds on localhost:3001
     - AnythingLLM uses Ollama/qwen3-coder:30b
     - AnythingLLM auto-indexed PDFs/XLSX files under PDFS/<folder>/ into matching workspaces
+    - OpenClaw Ollama RAG proxy responds on localhost:11437
     - `bash /workspace/ollama-memory/anythingllm_query.sh Nokia "What can you answer from the CMM guide?"` returns an AnythingLLM RAG answer
     - OpenClaw gateway responds on localhost:18789
     - OpenClaw default model is ollama/qwen3-coder:30b

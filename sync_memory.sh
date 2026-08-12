@@ -39,6 +39,7 @@ git add README.md \
   ask_with_memory.sh \
   anythingllm_query.sh \
   auto_index_anythingllm_pdfs.py \
+  openclaw_ollama_rag_proxy.py \
   query_anythingllm.py \
   restore_rag_cache.sh \
   save_rag_cache.sh \

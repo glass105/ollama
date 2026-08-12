@@ -24,6 +24,8 @@ OPENCLAW_GATEWAY_BIND="${OPENCLAW_GATEWAY_BIND:-loopback}"
 OPENCLAW_GATEWAY_AUTH="${OPENCLAW_GATEWAY_AUTH:-token}"
 OPENCLAW_ALLOWED_ORIGINS="${OPENCLAW_ALLOWED_ORIGINS:-}"
 OPENCLAW_ALLOW_HOST_HEADER_ORIGIN_FALLBACK="${OPENCLAW_ALLOW_HOST_HEADER_ORIGIN_FALLBACK:-false}"
+ENABLE_OPENCLAW_RAG_PROXY="${ENABLE_OPENCLAW_RAG_PROXY:-true}"
+OPENCLAW_RAG_PROXY_PORT="${OPENCLAW_RAG_PROXY_PORT:-11437}"
 ENABLE_ANYTHINGLLM="${ENABLE_ANYTHINGLLM:-true}"
 ENABLE_ANYTHINGLLM_PDF_AUTO_INDEX="${ENABLE_ANYTHINGLLM_PDF_AUTO_INDEX:-true}"
 ANYTHINGLLM_DIR="${ANYTHINGLLM_DIR:-/workspace/anything-llm}"
@@ -331,7 +333,7 @@ PY
   "models": {
     "providers": {
       "ollama": {
-        "baseUrl": "http://127.0.0.1:11434",
+        "baseUrl": "http://127.0.0.1:$OPENCLAW_RAG_PROXY_PORT",
         "apiKey": "ollama-local",
         "api": "ollama",
         "timeoutSeconds": 420,
@@ -370,6 +372,30 @@ EOF
     return 1
   }
   openclaw models set "ollama/$OLLAMA_MODEL" >> /tmp/openclaw-config.log 2>&1 || true
+}
+
+start_openclaw_rag_proxy() {
+  case "$(printf '%s' "$ENABLE_OPENCLAW_RAG_PROXY" | tr '[:upper:]' '[:lower:]')" in
+    true|1|yes|y) ;;
+    *)
+      log "Skipping OpenClaw RAG proxy because ENABLE_OPENCLAW_RAG_PROXY=$ENABLE_OPENCLAW_RAG_PROXY."
+      return 0
+      ;;
+  esac
+
+  if [ ! -f "$MEMORY_DIR/openclaw_ollama_rag_proxy.py" ]; then
+    log "OpenClaw RAG proxy script is missing; OpenClaw will use direct Ollama."
+    return 1
+  fi
+
+  log "Starting OpenClaw Ollama RAG proxy on 127.0.0.1:$OPENCLAW_RAG_PROXY_PORT."
+  pkill -f openclaw_ollama_rag_proxy.py 2>/dev/null || true
+  OPENCLAW_RAG_PROXY_PORT="$OPENCLAW_RAG_PROXY_PORT" \
+    OPENCLAW_RAG_PROXY_UPSTREAM="http://127.0.0.1:11434" \
+    MEMORY_DIR="$MEMORY_DIR" \
+    ANYTHINGLLM_QUERY_HELPER="$MEMORY_DIR/anythingllm_query.sh" \
+    nohup python3 "$MEMORY_DIR/openclaw_ollama_rag_proxy.py" \
+    > /tmp/openclaw-rag-proxy.log 2>&1 &
 }
 
 start_openclaw_gateway() {
@@ -853,6 +879,7 @@ ensure_repo
 chmod +x "$MEMORY_DIR/start.sh" "$MEMORY_DIR/load_memory.sh" "$MEMORY_DIR/sync_memory.sh" "$MEMORY_DIR/autosync_memory.sh"
 chmod +x "$MEMORY_DIR/auto_index_anythingllm_pdfs.py" 2>/dev/null || true
 chmod +x "$MEMORY_DIR/query_anythingllm.py" "$MEMORY_DIR/anythingllm_query.sh" 2>/dev/null || true
+chmod +x "$MEMORY_DIR/openclaw_ollama_rag_proxy.py" 2>/dev/null || true
 chmod +x "$MEMORY_DIR/restore_rag_cache.sh" 2>/dev/null || true
 chmod +x "$MEMORY_DIR/save_rag_cache.sh" 2>/dev/null || true
 trap save_rag_cache_on_shutdown INT TERM
@@ -873,6 +900,7 @@ auto_index_anythingllm_pdfs
 ) &
 if ensure_openclaw; then
   patch_openclaw_visible_no_reply || true
+  start_openclaw_rag_proxy || true
   configure_openclaw || true
   start_openclaw_gateway || true
 else
