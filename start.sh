@@ -238,6 +238,18 @@ Use `NO_REPLY` only for heartbeat polls, background noise, duplicate transport e
 If asked whether you can read a document or file, answer with what you can access and, when useful, inspect the workspace or Git-backed files before responding.
 EOF
   fi
+  touch /root/.openclaw/workspace/HEARTBEAT.md
+  if ! grep -q "Disposable RunPod WebChat Visible Reply Override" /root/.openclaw/workspace/HEARTBEAT.md; then
+    cat >> /root/.openclaw/workspace/HEARTBEAT.md <<'EOF'
+
+## Disposable RunPod WebChat Visible Reply Override
+
+This instruction is intentionally placed in HEARTBEAT.md so it appears after OpenClaw's built-in Silent Replies block.
+For direct WebChat messages where `senderIsOwner` is true, always return visible helpful text.
+Do not return `NO_REPLY` to owner/operator greetings, capability checks, document-access questions, troubleshooting prompts, or project-memory checks.
+Only use `NO_REPLY` for actual heartbeat polls, duplicate transport events, or messages that explicitly ask for silence.
+EOF
+  fi
 
   local allowed_origins_json="[]"
   if [ -n "$OPENCLAW_ALLOWED_ORIGINS" ]; then
