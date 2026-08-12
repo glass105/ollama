@@ -10,7 +10,7 @@ This repo is the durable, GitHub-backed layer for the pod:
 - Lightweight configuration
 - Markdown project memory
 - System prompts
-- Reference PDFs
+- Reference PDFs and spreadsheets
 - Reference images
 
 The RunPod pod provides disposable compute. Ollama, Open WebUI, downloaded models, logs, caches, and databases live only on the pod filesystem and are expected to disappear when the pod is deleted.
@@ -40,7 +40,7 @@ It also does not use persistent RunPod volume storage. A fresh pod can clone thi
 - `.env.example`
 - Markdown memory in `MEMORY/OpenWebUI/` and `MEMORY/AnythingLLM/`
 - Prompts in `PROMPTS/`
-- PDFs in `PDFS/`
+- PDFs and spreadsheets in `PDFS/`
 - Images in `IMAGES/`
 
 Do not store secrets, model files, logs, caches, databases, or runtime state in GitHub.
@@ -84,7 +84,7 @@ The startup script:
 10. Configures Open WebUI to use the memory proxy as its Ollama base URL.
 11. Configures Open WebUI RAG embeddings to use Ollama for faster indexing.
 12. Optionally bootstraps an Open WebUI admin.
-13. Auto-indexes PDFs from each subdirectory in `PDFS/` into matching Open WebUI Knowledge collections.
+13. Auto-indexes PDFs and XLSX workbooks from each subdirectory in `PDFS/` into matching Open WebUI Knowledge collections.
 14. Starts memory autosync.
 15. Optionally installs and starts AnythingLLM on port `3001`.
 16. Starts OpenClaw if enabled.
@@ -149,7 +149,7 @@ The proxy log is:
 /tmp/open-webui-memory-proxy.log
 ```
 
-## Open WebUI RAG And PDF Auto-Index
+## Open WebUI RAG And Reference Auto-Index
 
 Startup records and reapplies the speed settings that made the pod responsive:
 
@@ -166,7 +166,7 @@ ENABLE_OPEN_WEBUI_FAST_RAG=true
 OPEN_WEBUI_RAG_EMBEDDING_MODEL=nomic-embed-text:latest
 ```
 
-PDF auto-indexing is enabled by default. It scans Git-backed PDF subdirectories in:
+Reference auto-indexing is enabled by default. It scans Git-backed PDF and XLSX subdirectories in:
 
 ```text
 PDFS/
@@ -175,11 +175,11 @@ PDFS/
 Each immediate subdirectory becomes an Open WebUI Knowledge collection with the same name. For example:
 
 ```text
-PDFS/Nokia/*.pdf -> Knowledge: Nokia
-PDFS/Cisco/*.pdf -> Knowledge: Cisco
+PDFS/Nokia/*.pdf, PDFS/Nokia/*.xlsx -> Knowledge: Nokia
+PDFS/Cisco/*.pdf, PDFS/Cisco/*.xlsx -> Knowledge: Cisco
 ```
 
-Top-level PDFs directly under `PDFS/` are skipped so the folder layout remains the source of truth.
+Top-level PDFs and spreadsheets directly under `PDFS/` are skipped so the folder layout remains the source of truth.
 
 ```bash
 ENABLE_OPEN_WEBUI_PDF_AUTO_INDEX=true
@@ -218,7 +218,7 @@ Embedding model: nomic-embed-text:latest
 
 AnythingLLM runtime data, workspace uploads, vector stores, logs, Node dependencies, and databases are disposable pod-local state. They must not be committed to GitHub.
 
-AnythingLLM PDF auto-indexing can rebuild its disposable LanceDB vectors from Git-backed PDFs on each fresh pod:
+AnythingLLM auto-indexing can rebuild its disposable LanceDB vectors from Git-backed PDFs and XLSX workbooks on each fresh pod:
 
 ```bash
 ENABLE_ANYTHINGLLM=true
@@ -226,13 +226,13 @@ ENABLE_ANYTHINGLLM_PDF_AUTO_INDEX=true
 ANYTHINGLLM_PDF_DIR=/workspace/ollama-memory/PDFS
 ```
 
-The auto-indexer scans each immediate PDF subdirectory and creates or reuses an AnythingLLM workspace with the same name:
+The auto-indexer scans each immediate reference subdirectory and creates or reuses an AnythingLLM workspace with the same name:
 
 ```text
-PDFS/Nokia/*.pdf -> AnythingLLM workspace: Nokia
+PDFS/Nokia/*.pdf, PDFS/Nokia/*.xlsx -> AnythingLLM workspace: Nokia
 ```
 
-It generates a pod-local AnythingLLM API key in `/tmp/anythingllm-api-key`, uploads each PDF into its workspace, and lets AnythingLLM recreate the local LanceDB vector database. The API key and LanceDB data are disposable runtime state and must not be committed.
+It generates a pod-local AnythingLLM API key in `/tmp/anythingllm-api-key`, uploads each reference into its workspace, and lets AnythingLLM recreate the local LanceDB vector database. XLSX files are converted to Markdown text before upload so alarms and tables can be embedded. The API key and LanceDB data are disposable runtime state and must not be committed.
 
 ## Optional S3 RAG Cache
 
@@ -315,8 +315,10 @@ MEMORY/**/*.md
 PROMPTS/*.md
 PDFS/*.md
 PDFS/*.pdf
+PDFS/*.xlsx
 PDFS/**/*.md
 PDFS/**/*.pdf
+PDFS/**/*.xlsx
 IMAGES/*.md
 IMAGES/*.png
 IMAGES/*.jpg
@@ -338,15 +340,15 @@ It also runs one final sync on graceful shutdown.
 
 Autosync depends on working GitHub authentication for pushes.
 
-## PDFs And Images
+## PDFs, Spreadsheets, And Images
 
-Store lightweight PDF references in:
+Store lightweight PDF and spreadsheet references in:
 
 ```text
 PDFS/
 ```
 
-Vendor-specific PDFs can be grouped in subdirectories such as:
+Vendor-specific references can be grouped in subdirectories such as:
 
 ```text
 PDFS/Nokia/

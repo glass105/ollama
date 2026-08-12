@@ -48,8 +48,10 @@ git add README.md \
   PROMPTS/*.md \
   PDFS/*.md \
   PDFS/*.pdf \
+  PDFS/*.xlsx \
   PDFS/**/*.md \
   PDFS/**/*.pdf \
+  PDFS/**/*.xlsx \
   IMAGES/*.md \
   IMAGES/*.png \
   IMAGES/*.jpg \

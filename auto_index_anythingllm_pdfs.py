@@ -6,6 +6,10 @@ import secrets
 import sqlite3
 import time
 import uuid
+import zipfile
+from html import unescape
+from tempfile import TemporaryDirectory
+from xml.etree import ElementTree
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -195,12 +199,12 @@ def workspace_doc_titles(slug: str) -> set[str]:
     return titles
 
 
-def multipart_upload(path: str, token: str, pdf: Path, workspace_slug: str) -> dict:
+def multipart_upload(path: str, token: str, upload_path: Path, workspace_slug: str, title: str, source_path: Path) -> dict:
     boundary = "----anythingllm-git-pdf-" + uuid.uuid4().hex
-    content_type = mimetypes.guess_type(pdf.name)[0] or "application/octet-stream"
+    content_type = mimetypes.guess_type(upload_path.name)[0] or "application/octet-stream"
     metadata = {
-        "title": pdf.name,
-        "description": f"Git-backed PDF from {pdf.relative_to(PDF_DIR)}",
+        "title": title,
+        "description": f"Git-backed reference from {source_path.relative_to(PDF_DIR)}",
         "docSource": "GitHub PDFS directory",
     }
     parts: list[bytes] = []
@@ -216,11 +220,11 @@ def multipart_upload(path: str, token: str, pdf: Path, workspace_slug: str) -> d
     parts.append(f"--{boundary}\r\n".encode())
     parts.append(
         (
-            f'Content-Disposition: form-data; name="file"; filename="{pdf.name}"\r\n'
+            f'Content-Disposition: form-data; name="file"; filename="{upload_path.name}"\r\n'
             f"Content-Type: {content_type}\r\n\r\n"
         ).encode()
     )
-    parts.append(pdf.read_bytes())
+    parts.append(upload_path.read_bytes())
     parts.append(b"\r\n")
     parts.append(f"--{boundary}--\r\n".encode())
     body = b"".join(parts)
@@ -246,11 +250,70 @@ def multipart_upload(path: str, token: str, pdf: Path, workspace_slug: str) -> d
     return json.loads(raw) if raw else {}
 
 
-def pdf_collection_name(path: Path) -> str | None:
+def document_collection_name(path: Path) -> str | None:
     relative = path.relative_to(PDF_DIR)
     if len(relative.parts) < 2:
         return None
     return relative.parts[0]
+
+
+def _xlsx_cell_value(cell, shared_strings: list[str]) -> str:
+    value = cell.find("{*}v")
+    if value is None or value.text is None:
+        inline = cell.find("{*}is/{*}t")
+        return unescape(inline.text if inline is not None and inline.text else "")
+
+    raw = value.text
+    if cell.attrib.get("t") == "s":
+        try:
+            return shared_strings[int(raw)]
+        except Exception:
+            return raw
+    return raw
+
+
+def xlsx_to_markdown(path: Path) -> str:
+    shared_strings: list[str] = []
+    parts = [f"# {path.stem}", "", f"Source workbook: {path}", ""]
+    with zipfile.ZipFile(path) as archive:
+        if "xl/sharedStrings.xml" in archive.namelist():
+            root = ElementTree.fromstring(archive.read("xl/sharedStrings.xml"))
+            for item in root.findall("{*}si"):
+                texts = [node.text or "" for node in item.findall(".//{*}t")]
+                shared_strings.append(unescape("".join(texts)))
+
+        workbook_names: dict[str, str] = {}
+        if "xl/workbook.xml" in archive.namelist():
+            workbook = ElementTree.fromstring(archive.read("xl/workbook.xml"))
+            for index, sheet in enumerate(workbook.findall(".//{*}sheet"), 1):
+                workbook_names[f"sheet{index}"] = sheet.attrib.get("name", f"Sheet {index}")
+
+        sheet_paths = sorted(
+            name for name in archive.namelist()
+            if name.startswith("xl/worksheets/sheet") and name.endswith(".xml")
+        )
+        for index, sheet_path in enumerate(sheet_paths, 1):
+            sheet_name = workbook_names.get(f"sheet{index}", f"Sheet {index}")
+            parts.append(f"\n---\n\n## Sheet: {sheet_name}\n")
+            root = ElementTree.fromstring(archive.read(sheet_path))
+            for row in root.findall(".//{*}sheetData/{*}row"):
+                values = [
+                    _xlsx_cell_value(cell, shared_strings).strip()
+                    for cell in row.findall("{*}c")
+                ]
+                while values and values[-1] == "":
+                    values.pop()
+                if any(values):
+                    parts.append(" | ".join(values))
+    return "\n".join(parts)
+
+
+def uploadable_document(document: Path, tmp_dir: Path) -> tuple[Path, str]:
+    if document.suffix.lower() == ".xlsx":
+        generated = tmp_dir / f"{document.stem}.md"
+        generated.write_text(xlsx_to_markdown(document), encoding="utf-8")
+        return generated, document.name
+    return document, document.name
 
 
 def main() -> int:
@@ -259,9 +322,12 @@ def main() -> int:
         log(f"PDF directory not found: {PDF_DIR}; skipping")
         return 0
 
-    pdfs = sorted(p for p in PDF_DIR.rglob("*.pdf") if p.is_file())
-    if not pdfs:
-        log(f"no PDFs found in {PDF_DIR}; skipping")
+    documents = sorted(
+        p for p in PDF_DIR.rglob("*")
+        if p.is_file() and p.suffix.lower() in {".pdf", ".xlsx"}
+    )
+    if not documents:
+        log(f"no PDFs or XLSX files found in {PDF_DIR}; skipping")
         return 0
 
     token = ensure_api_key()
@@ -269,25 +335,28 @@ def main() -> int:
     log(f"using AnythingLLM API prefix {prefix}")
 
     workspace_slugs: dict[str, str] = {}
-    for pdf in pdfs:
-        collection_name = pdf_collection_name(pdf)
-        if not collection_name:
-            log(f"skipping top-level PDF without collection directory: {pdf.name}")
-            continue
+    with TemporaryDirectory() as tmp:
+        tmp_dir = Path(tmp)
+        for document in documents:
+            collection_name = document_collection_name(document)
+            if not collection_name:
+                log(f"skipping top-level document without collection directory: {document.name}")
+                continue
 
-        if collection_name not in workspace_slugs:
-            workspace_slugs[collection_name] = ensure_workspace(prefix, token, collection_name)
-        slug = workspace_slugs[collection_name]
-        existing_titles = workspace_doc_titles(slug)
-        if pdf.name in existing_titles:
-            log(f"already indexed in workspace '{collection_name}': {pdf.name}")
-            continue
+            if collection_name not in workspace_slugs:
+                workspace_slugs[collection_name] = ensure_workspace(prefix, token, collection_name)
+            slug = workspace_slugs[collection_name]
+            existing_titles = workspace_doc_titles(slug)
+            if document.name in existing_titles:
+                log(f"already indexed in workspace '{collection_name}': {document.name}")
+                continue
 
-        log(f"uploading and embedding {pdf.name} into AnythingLLM workspace '{collection_name}'")
-        result = multipart_upload(f"{prefix}/document/upload", token, pdf, slug)
-        if not result.get("success"):
-            raise RuntimeError(f"AnythingLLM did not report success for {pdf.name}: {result}")
-        log(f"indexed in workspace '{collection_name}': {pdf.name}")
+            upload_path, title = uploadable_document(document, tmp_dir)
+            log(f"uploading and embedding {document.name} into AnythingLLM workspace '{collection_name}'")
+            result = multipart_upload(f"{prefix}/document/upload", token, upload_path, slug, title, document)
+            if not result.get("success"):
+                raise RuntimeError(f"AnythingLLM did not report success for {document.name}: {result}")
+            log(f"indexed in workspace '{collection_name}': {document.name}")
 
     return 0
 
