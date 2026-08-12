@@ -594,8 +594,20 @@ ensure_node20_for_anythingllm() {
   fi
 
   if ! command -v npm >/dev/null 2>&1; then
-    log "npm is missing; cannot install Node 20 for AnythingLLM."
-    return 1
+    log "npm is missing; installing nodejs and npm for AnythingLLM."
+    if command -v apt-get >/dev/null 2>&1; then
+      apt-get update
+      DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs npm
+    elif command -v apk >/dev/null 2>&1; then
+      apk add --no-cache nodejs npm
+    elif command -v dnf >/dev/null 2>&1; then
+      dnf install -y nodejs npm
+    elif command -v yum >/dev/null 2>&1; then
+      yum install -y nodejs npm
+    else
+      log "No supported package manager found to install npm."
+      return 1
+    fi
   fi
 
   log "Installing Node 20 for AnythingLLM."

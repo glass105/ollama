@@ -1,4 +1,5 @@
 .env
+.s3-keys
 *.log
 .cache/
 __pycache__/
