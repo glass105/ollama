@@ -157,7 +157,7 @@ class ProxyHandler(BaseHTTPRequestHandler):
                 response_body = response.read()
                 self.send_response(response.status)
                 for key, value in response.headers.items():
-                    if key.lower() not in {"transfer-encoding", "connection"}:
+                    if key.lower() not in {"transfer-encoding", "connection", "content-length"}:
                         self.send_header(key, value)
                 self.send_header("Content-Length", str(len(response_body)))
                 self.end_headers()
