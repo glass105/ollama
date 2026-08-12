@@ -2,7 +2,7 @@
 
 Store image reference files here.
 
-Use this folder for lightweight diagrams, screenshots, architecture images, and visual references that Qwen, Open WebUI, Codex, or OpenClaw agents may need to reference.
+Use this folder for lightweight diagrams, screenshots, architecture images, and visual references that Qwen, AnythingLLM, Codex, or OpenClaw agents may need to reference.
 
 Supported autosync file types are intended to include common images such as `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, and `.svg`.
 

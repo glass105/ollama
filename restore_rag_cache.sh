@@ -16,7 +16,6 @@ RAG_S3_ENDPOINT="${RAG_S3_ENDPOINT:-https://s3api-us-nc-1.runpod.io}"
 RAG_S3_BUCKET="${RAG_S3_BUCKET:-lp8wr68ped}"
 RAG_S3_PREFIX="${RAG_S3_PREFIX:-ollama-rag-cache}"
 RAG_S3_ARCHIVE_NAME="${RAG_S3_ARCHIVE_NAME:-rag-vector-state.tar.gz}"
-OPEN_WEBUI_DATA_DIR="${DATA_DIR:-${OPEN_WEBUI_DATA_DIR:-/workspace/open-webui}}"
 ANYTHINGLLM_STORAGE_DIR="${ANYTHINGLLM_STORAGE_DIR:-/workspace/anything-llm/server/storage}"
 
 log() {
@@ -106,8 +105,6 @@ main() {
     return 0
   fi
 
-  copy_dir_if_present "$snapshot_root/open-webui/vector_db" "$OPEN_WEBUI_DATA_DIR/vector_db"
-  copy_dir_if_present "$snapshot_root/open-webui/uploads" "$OPEN_WEBUI_DATA_DIR/uploads"
   copy_dir_if_present "$snapshot_root/anythingllm/lancedb" "$ANYTHINGLLM_STORAGE_DIR/lancedb"
   copy_dir_if_present "$snapshot_root/anythingllm/documents" "$ANYTHINGLLM_STORAGE_DIR/documents"
   copy_dir_if_present "$snapshot_root/anythingllm/vector-cache" "$ANYTHINGLLM_STORAGE_DIR/vector-cache"

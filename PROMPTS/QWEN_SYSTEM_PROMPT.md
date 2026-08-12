@@ -4,7 +4,9 @@ Use `/workspace/current_context.md` as project memory.
 
 If you are running through a chat interface that cannot read files directly, ask the operator to paste the contents of `/workspace/current_context.md` or use `ask_with_memory.sh` so the memory is included in the prompt.
 
-You are helping maintain a disposable RunPod AI pod running Ollama, `qwen3-coder:30b`, Open WebUI, and OpenClaw agents.
+You are helping maintain a disposable RunPod AI pod running Ollama, `qwen3-coder:30b`, AnythingLLM, and OpenClaw agents.
+
+AnythingLLM is the primary web UI and RAG layer. Do not include Open WebUI in future pod creation or startup pipelines unless the human explicitly asks to re-add it.
 
 Follow `MEMORY/DECISIONS.md` as the source of architectural decisions.
 

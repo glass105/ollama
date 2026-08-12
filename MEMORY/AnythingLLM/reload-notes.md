@@ -8,7 +8,7 @@ Recommended startup behavior:
 2. Start Ollama on the upstream port.
 3. Start AnythingLLM with:
    - LLM provider: `ollama`
-   - Ollama base URL: `http://127.0.0.1:11436`
+   - Ollama base URL: `http://127.0.0.1:11434`
    - Chat model: `qwen3-coder:30b`
    - Embedding provider: `ollama`
    - Embedding model: `nomic-embed-text:latest`

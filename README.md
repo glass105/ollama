@@ -1,6 +1,6 @@
 # Disposable RunPod Ollama Setup
 
-Minimal startup and memory setup for a disposable RunPod pod running Ollama, `qwen3-coder:30b`, Open WebUI, OpenClaw agents, and optional AnythingLLM.
+Minimal startup and memory setup for a disposable RunPod pod running Ollama, `qwen3-coder:30b`, AnythingLLM, and OpenClaw agents.
 
 ## Architecture Overview
 
@@ -13,46 +13,47 @@ This repo is the durable, GitHub-backed layer for the pod:
 - Reference PDFs and spreadsheets
 - Reference images
 
-The RunPod pod provides disposable compute. Ollama, Open WebUI, downloaded models, logs, caches, and databases live only on the pod filesystem and are expected to disappear when the pod is deleted.
+The RunPod pod provides disposable compute. Ollama, AnythingLLM runtime data, downloaded models, logs, caches, vector stores, and databases live only on the pod filesystem unless the optional S3 RAG cache is enabled.
 
-## No Network Storage
+## Storage Policy
 
-This setup does not use RunPod network storage.
+This setup does not use RunPod network storage and does not use persistent RunPod volume storage. Keep `volumeInGb=0`.
 
-It also does not use persistent RunPod volume storage. A fresh pod can clone this repo, rebuild the runtime state, and pull `qwen3-coder:30b` again.
+GitHub stores scripts, configuration, prompts, Markdown memory, PDFs, spreadsheets, and images only. Do not commit secrets, model files, logs, caches, databases, vector stores, or runtime state.
 
 ## What Is Lost When The Pod Is Deleted
 
 - Downloaded Ollama models
-- Open WebUI runtime data
+- AnythingLLM runtime data
+- Pod-local LanceDB/vector state unless saved to the optional S3 RAG cache
 - Logs
 - Caches
 - Local databases
 - Any uncommitted pod-local changes
 
-## What Survives In GitHub
+## What Survives
+
+In GitHub:
 
 - `README.md`
-- `start.sh`
-- `load_memory.sh`
-- `sync_memory.sh`
-- `autosync_memory.sh`
-- `.env.example`
-- Markdown memory in `MEMORY/OpenWebUI/` and `MEMORY/AnythingLLM/`
+- Startup and sync scripts
+- Markdown memory in `MEMORY/`
 - Prompts in `PROMPTS/`
 - PDFs and spreadsheets in `PDFS/`
 - Images in `IMAGES/`
 
-Do not store secrets, model files, logs, caches, databases, or runtime state in GitHub.
+In optional S3 RAG cache:
+
+- AnythingLLM RAG/vector snapshots and sanitized manifests only
 
 ## Approved RunPod GPUs
 
 Use one of these GPUs:
 
-- RTX 4000 Ada
-- RTX A4000
-- RTX A4500
-- RTX A5000
+- NVIDIA RTX 4000 Ada Generation
+- NVIDIA RTX A4000
+- NVIDIA RTX A4500
+- NVIDIA RTX A5000
 
 If none are available, stop and ask before using another GPU.
 
@@ -65,152 +66,38 @@ cd /workspace && \
 git clone https://github.com/glass105/ollama.git ollama-memory || true && \
 cd /workspace/ollama-memory && \
 git pull && \
-chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh && \
-(chmod +x restore_rag_cache.sh save_rag_cache.sh auto_index_open_webui_pdfs.py auto_index_anythingllm_pdfs.py 2>/dev/null || true) && \
+chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh restore_rag_cache.sh save_rag_cache.sh auto_index_anythingllm_pdfs.py && \
 bash start.sh
 ```
 
 The startup script:
 
 1. Loads `.env` if present.
-2. Installs `git` and `curl` if missing.
+2. Installs required system packages.
 3. Clones or updates this repo in `/workspace/ollama-memory`.
 4. Builds `/workspace/current_context.md`.
 5. Starts Ollama.
-6. Waits for Ollama on port `11434`.
-7. Pulls `qwen3-coder:30b` when enabled.
-8. Starts the pod-local Open WebUI memory proxy on port `11435`.
-9. Starts Open WebUI on port `3000`.
-10. Configures Open WebUI to use the memory proxy as its Ollama base URL.
-11. Configures Open WebUI RAG embeddings to use Ollama for faster indexing.
-12. Optionally bootstraps an Open WebUI admin.
-13. Auto-indexes PDFs and XLSX workbooks from each subdirectory in `PDFS/` into matching Open WebUI Knowledge collections.
-14. Starts memory autosync.
-15. Optionally installs and starts AnythingLLM on port `3001`.
-16. Starts OpenClaw if enabled.
-17. Prints connection details.
+6. Pulls `qwen3-coder:30b` and `nomic-embed-text:latest`.
+7. Starts memory autosync.
+8. Installs and starts AnythingLLM on port `3001`.
+9. Restores optional S3 RAG cache if enabled.
+10. Auto-indexes PDFs and XLSX workbooks from `PDFS/` into AnythingLLM workspaces.
+11. Starts OpenClaw if enabled.
+12. Prints connection details.
 
-## Open WebUI Access
+## AnythingLLM Access
 
-Open WebUI listens on port `3000`:
+AnythingLLM is the primary UI and RAG layer. Expose port `3001/http` on the RunPod pod:
 
 ```text
-http://<RUNPOD_HOST_OR_PROXY>:3000
+http://<RUNPOD_HOST_OR_PROXY>:3001
 ```
 
-Keep Open WebUI protected. Do not expose it broadly without an access control layer.
-
-Open WebUI is pointed at a pod-local memory proxy on `http://localhost:11435`. The proxy forwards to Ollama on `http://localhost:11434` and injects `/workspace/current_context.md` into chat/generate requests. The proxy is pod-local only and does not store runtime state.
-
-To bootstrap an administrator on each fresh pod, set:
-
-```bash
-OPEN_WEBUI_BOOTSTRAP_ADMIN=true
-OPEN_WEBUI_ADMIN_EMAIL=joercoleman@mail.com
-OPEN_WEBUI_ADMIN_NAME="Joseph Coleman"
-```
-
-If `OPEN_WEBUI_ADMIN_PASSWORD` is not set, startup generates a pod-local password and stores it at:
-
-```text
-/tmp/open-webui-admin-password
-```
-
-That password file is disposable pod runtime state and must not be committed to GitHub.
-
-## Ollama API
-
-Inside the pod:
-
-```text
-http://localhost:11434
-```
-
-Avoid exposing Ollama directly to the public internet.
-
-Ollama does not automatically read `/workspace/current_context.md`. The memory file must be included in a prompt, proxy, system prompt, or agent/tool layer. For direct command-line use:
-
-```bash
-cd /workspace/ollama-memory
-bash ask_with_memory.sh "Summarize the current project setup."
-```
-
-For Open WebUI, select `qwen3-coder:30b`. Memory is injected by the pod-local proxy, not by a separate model.
-
-If Open WebUI answers as though it cannot see project memory, verify that its Ollama base URL is the memory proxy:
-
-```text
-http://localhost:11435
-```
-
-The proxy log is:
-
-```text
-/tmp/open-webui-memory-proxy.log
-```
-
-## Open WebUI RAG And Reference Auto-Index
-
-Startup records and reapplies the speed settings that made the pod responsive:
-
-- Chat memory proxy defaults to `OPEN_WEBUI_MEMORY_PROXY_NUM_CTX=8192`.
-- Chat memory proxy defaults to `OPEN_WEBUI_MEMORY_PROXY_NUM_PREDICT=768`.
-- Open WebUI RAG embeddings use Ollama instead of the slow local CPU sentence-transformer path.
-- Default RAG embedding model is `nomic-embed-text:latest`.
-- Default embedding batch size is `16`.
-
-The embedding model is pulled at startup when fast RAG is enabled:
-
-```bash
-ENABLE_OPEN_WEBUI_FAST_RAG=true
-OPEN_WEBUI_RAG_EMBEDDING_MODEL=nomic-embed-text:latest
-```
-
-Reference auto-indexing is enabled by default. It scans Git-backed PDF and XLSX subdirectories in:
-
-```text
-PDFS/
-```
-
-Each immediate subdirectory becomes an Open WebUI Knowledge collection with the same name. For example:
-
-```text
-PDFS/Nokia/*.pdf, PDFS/Nokia/*.xlsx -> Knowledge: Nokia
-PDFS/Cisco/*.pdf, PDFS/Cisco/*.xlsx -> Knowledge: Cisco
-```
-
-Top-level PDFs and spreadsheets directly under `PDFS/` are skipped so the folder layout remains the source of truth.
-
-```bash
-ENABLE_OPEN_WEBUI_PDF_AUTO_INDEX=true
-OPEN_WEBUI_PDF_KNOWLEDGE_DESCRIPTION_TEMPLATE="Git-backed PDF references from PDFS/{collection}"
-```
-
-The auto-indexer stores extracted text, Open WebUI upload records, Chroma vectors, and status data only in the pod-local Open WebUI runtime directory. Those generated runtime files are disposable and must not be committed.
-
-The auto-index log is:
-
-```text
-/tmp/open-webui-pdf-auto-index.log
-```
-
-## AnythingLLM Comparison
-
-AnythingLLM can be deployed beside Open WebUI for a separate RAG comparison layer.
-
-Expose port `3001/http` on the RunPod pod and enable:
-
-```bash
-ENABLE_ANYTHINGLLM=true
-ANYTHINGLLM_PUBLIC_PORT=3001
-ANYTHINGLLM_INTERNAL_PORT=3010
-```
-
-Startup configures AnythingLLM to use the same local Ollama upstream as Open WebUI:
+Startup configures AnythingLLM to use local Ollama:
 
 ```text
 LLM provider: Ollama
-Ollama base URL: http://127.0.0.1:11436
+Ollama base URL: http://127.0.0.1:11434
 Chat model: qwen3-coder:30b
 Embedding provider: Ollama
 Embedding model: nomic-embed-text:latest
@@ -218,12 +105,15 @@ Embedding model: nomic-embed-text:latest
 
 AnythingLLM runtime data, workspace uploads, vector stores, logs, Node dependencies, and databases are disposable pod-local state. They must not be committed to GitHub.
 
-AnythingLLM auto-indexing can rebuild its disposable LanceDB vectors from Git-backed PDFs and XLSX workbooks on each fresh pod:
+## AnythingLLM Reference Auto-Index
+
+Reference auto-indexing is enabled by default:
 
 ```bash
 ENABLE_ANYTHINGLLM=true
 ENABLE_ANYTHINGLLM_PDF_AUTO_INDEX=true
 ANYTHINGLLM_PDF_DIR=/workspace/ollama-memory/PDFS
+RAG_EMBEDDING_MODEL=nomic-embed-text:latest
 ```
 
 The auto-indexer scans each immediate reference subdirectory and creates or reuses an AnythingLLM workspace with the same name:
@@ -232,11 +122,19 @@ The auto-indexer scans each immediate reference subdirectory and creates or reus
 PDFS/Nokia/*.pdf, PDFS/Nokia/*.xlsx -> AnythingLLM workspace: Nokia
 ```
 
-It generates a pod-local AnythingLLM API key in `/tmp/anythingllm-api-key`, uploads each reference into its workspace, and lets AnythingLLM recreate the local LanceDB vector database. XLSX files are converted to Markdown text before upload so alarms and tables can be embedded. The API key and LanceDB data are disposable runtime state and must not be committed.
+It generates a pod-local AnythingLLM API key in `/tmp/anythingllm-api-key`, uploads each reference into its workspace, and lets AnythingLLM recreate the local LanceDB vector database. XLSX files are converted to Markdown text before upload so alarms and tables can be embedded.
+
+Logs:
+
+```text
+/workspace/anythingllm-deploy/logs/server.log
+/workspace/anythingllm-deploy/logs/collector.log
+/tmp/anythingllm-pdf-auto-index.log
+```
 
 ## Optional S3 RAG Cache
 
-RunPod network volumes are not used by default. For portable RAG/vector reuse across datacenters, startup can optionally restore and save a sanitized RAG snapshot through RunPod's S3-compatible API.
+For portable RAG/vector reuse across fresh pods, startup can optionally restore and save an AnythingLLM RAG snapshot through RunPod's S3-compatible API.
 
 The selected cache target is:
 
@@ -255,20 +153,23 @@ RAG_S3_ACCESS_KEY_ID=<secret>
 RAG_S3_SECRET_ACCESS_KEY=<secret>
 ```
 
-The cache scripts store only vector/RAG-facing artifacts and sanitized manifests. They do not intentionally store model files, OpenClaw runtime state, logs, tokens, generated API keys, or full auth databases.
+The cache scripts store only AnythingLLM vector/RAG-facing artifacts and sanitized manifests. They do not intentionally store model files, OpenClaw runtime state, logs, tokens, generated API keys, full auth databases, or general caches.
 
-The AnythingLLM URL is:
+## Ollama API
+
+Inside the pod:
 
 ```text
-http://<RUNPOD_HOST_OR_PROXY>:3001
+http://localhost:11434
 ```
 
-The logs are:
+Avoid exposing Ollama directly to the public internet.
 
-```text
-/workspace/anythingllm-deploy/logs/server.log
-/workspace/anythingllm-deploy/logs/collector.log
-/tmp/anythingllm-pdf-auto-index.log
+Ollama does not automatically read `/workspace/current_context.md`. The memory file must be included in a prompt, system prompt, or agent/tool layer. For direct command-line use:
+
+```bash
+cd /workspace/ollama-memory
+bash ask_with_memory.sh "Summarize the current project setup."
 ```
 
 ## OpenClaw Local PC Access
@@ -295,7 +196,7 @@ OLLAMA_BASE_URL=http://localhost:11434
 MODEL=qwen3-coder:30b
 ```
 
-OpenClaw is configured to use `ollama/qwen3-coder:30b`, but agents still need to be instructed to use `/workspace/current_context.md` when project memory matters.
+OpenClaw is configured to use `ollama/qwen3-coder:30b`, with a 66k context window and visible direct WebChat replies.
 
 ## Manual Sync
 
@@ -306,27 +207,7 @@ cd /workspace/ollama-memory
 bash sync_memory.sh
 ```
 
-Only these paths are added:
-
-```text
-README.md
-MEMORY/*.md
-MEMORY/**/*.md
-PROMPTS/*.md
-PDFS/*.md
-PDFS/*.pdf
-PDFS/*.xlsx
-PDFS/**/*.md
-PDFS/**/*.pdf
-PDFS/**/*.xlsx
-IMAGES/*.md
-IMAGES/*.png
-IMAGES/*.jpg
-IMAGES/*.jpeg
-IMAGES/*.webp
-IMAGES/*.gif
-IMAGES/*.svg
-```
+Only approved Git-backed memory/config/reference assets are added.
 
 ## Autosync
 
@@ -337,8 +218,6 @@ SYNC_INTERVAL_SECONDS=1800
 ```
 
 It also runs one final sync on graceful shutdown.
-
-Autosync depends on working GitHub authentication for pushes.
 
 ## PDFs, Spreadsheets, And Images
 
@@ -360,14 +239,15 @@ Store lightweight image references in:
 IMAGES/
 ```
 
-Do not store private documents, credential-bearing screenshots, large datasets, or model files in these folders.
+Do not store private documents, credential-bearing screenshots, large datasets, vector stores, or model files in these folders.
 
 ## Troubleshooting
 
-If Open WebUI does not start, check:
+If AnythingLLM does not start, check:
 
 ```bash
-cat /tmp/open-webui.log
+cat /workspace/anythingllm-deploy/logs/server.log
+cat /workspace/anythingllm-deploy/logs/collector.log
 ```
 
 If Ollama does not start, check:
@@ -381,6 +261,7 @@ If model pull fails, verify network access and disk space:
 
 ```bash
 ollama pull qwen3-coder:30b
+ollama pull nomic-embed-text:latest
 ```
 
 If memory sync fails, verify GitHub auth and branch state:
@@ -395,6 +276,6 @@ bash sync_memory.sh
 
 - Do not expose Ollama publicly without auth.
 - Prefer SSH tunnel, VPN, Tailscale, or Cloudflare Tunnel.
-- Never commit `.env`, secrets, keys, tokens, logs, caches, databases, or model files.
+- Never commit `.env`, secrets, keys, tokens, logs, caches, databases, vector stores, or model files.
 - Review memory changes before pushing.
 - Treat OpenClaw agents as high-privilege automation.

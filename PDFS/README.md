@@ -2,7 +2,7 @@
 
 Store PDF reference files here.
 
-Use this folder for lightweight project documents that Qwen, Open WebUI, Codex, or OpenClaw agents may need to reference.
+Use this folder for lightweight project documents that Qwen, AnythingLLM, Codex, or OpenClaw agents may need to reference.
 
 Guidelines:
 

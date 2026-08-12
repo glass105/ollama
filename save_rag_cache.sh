@@ -16,7 +16,6 @@ RAG_S3_ENDPOINT="${RAG_S3_ENDPOINT:-https://s3api-us-nc-1.runpod.io}"
 RAG_S3_BUCKET="${RAG_S3_BUCKET:-lp8wr68ped}"
 RAG_S3_PREFIX="${RAG_S3_PREFIX:-ollama-rag-cache}"
 RAG_S3_ARCHIVE_NAME="${RAG_S3_ARCHIVE_NAME:-rag-vector-state.tar.gz}"
-OPEN_WEBUI_DATA_DIR="${DATA_DIR:-${OPEN_WEBUI_DATA_DIR:-/workspace/open-webui}}"
 ANYTHINGLLM_STORAGE_DIR="${ANYTHINGLLM_STORAGE_DIR:-/workspace/anything-llm/server/storage}"
 
 log() {
@@ -71,7 +70,7 @@ copy_dir_if_present() {
 write_manifests() {
   local out_dir="$1"
   mkdir -p "$out_dir"
-  python3 - "$out_dir" "$ANYTHINGLLM_STORAGE_DIR" "$OPEN_WEBUI_DATA_DIR" <<'PY'
+  python3 - "$out_dir" "$ANYTHINGLLM_STORAGE_DIR" <<'PY'
 import json
 import sqlite3
 import sys
@@ -79,7 +78,6 @@ from pathlib import Path
 
 out_dir = Path(sys.argv[1])
 anything_storage = Path(sys.argv[2])
-openwebui_data = Path(sys.argv[3])
 
 def dump_tables(db_path, tables, output_name):
     if not db_path.exists():
@@ -98,11 +96,6 @@ dump_tables(
     anything_storage / "anythingllm.db",
     ["workspaces", "workspace_documents", "document_vectors"],
     "anythingllm-rag-manifest.json",
-)
-dump_tables(
-    openwebui_data / "webui.db",
-    ["knowledge", "knowledge_file", "file"],
-    "openwebui-rag-manifest.json",
 )
 PY
 }
@@ -124,10 +117,8 @@ main() {
   local stage="/tmp/rag-vector-state-$stamp"
   local archive="/tmp/${RAG_S3_ARCHIVE_NAME}"
   rm -rf "$stage"
-  mkdir -p "$stage/open-webui" "$stage/anythingllm" "$stage/manifests"
+  mkdir -p "$stage/anythingllm" "$stage/manifests"
 
-  copy_dir_if_present "$OPEN_WEBUI_DATA_DIR/vector_db" "$stage/open-webui/vector_db"
-  copy_dir_if_present "$OPEN_WEBUI_DATA_DIR/uploads" "$stage/open-webui/uploads"
   copy_dir_if_present "$ANYTHINGLLM_STORAGE_DIR/lancedb" "$stage/anythingllm/lancedb"
   copy_dir_if_present "$ANYTHINGLLM_STORAGE_DIR/documents" "$stage/anythingllm/documents"
   copy_dir_if_present "$ANYTHINGLLM_STORAGE_DIR/vector-cache" "$stage/anythingllm/vector-cache"

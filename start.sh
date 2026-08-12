@@ -15,30 +15,17 @@ GITHUB_BRANCH="${GITHUB_BRANCH:-main}"
 MEMORY_DIR="${MEMORY_DIR:-/workspace/ollama-memory}"
 COMBINED_CONTEXT="${COMBINED_CONTEXT:-/workspace/current_context.md}"
 OLLAMA_MODEL="${OLLAMA_MODEL:-qwen3-coder:30b}"
-OLLAMA_UPSTREAM_HOST="${OLLAMA_UPSTREAM_HOST:-127.0.0.1:11436}"
-OLLAMA_PROXY_PORT="${OLLAMA_PROXY_PORT:-11434}"
-OPEN_WEBUI_PORT="${OPEN_WEBUI_PORT:-3000}"
-OPEN_WEBUI_MEMORY_PROXY_PORT="${OPEN_WEBUI_MEMORY_PROXY_PORT:-11435}"
-OPEN_WEBUI_BOOTSTRAP_ADMIN="${OPEN_WEBUI_BOOTSTRAP_ADMIN:-false}"
-OPEN_WEBUI_ADMIN_EMAIL="${OPEN_WEBUI_ADMIN_EMAIL:-}"
-OPEN_WEBUI_ADMIN_NAME="${OPEN_WEBUI_ADMIN_NAME:-}"
-OPEN_WEBUI_ADMIN_PASSWORD_FILE="${OPEN_WEBUI_ADMIN_PASSWORD_FILE:-/tmp/open-webui-admin-password}"
+OLLAMA_UPSTREAM_HOST="${OLLAMA_UPSTREAM_HOST:-${OLLAMA_HOST:-127.0.0.1:11434}}"
 ENABLE_MODEL_PULL="${ENABLE_MODEL_PULL:-true}"
-OPEN_WEBUI_VENV="${OPEN_WEBUI_VENV:-/workspace/open-webui-venv}"
-ENABLE_OPEN_WEBUI_FAST_RAG="${ENABLE_OPEN_WEBUI_FAST_RAG:-true}"
-OPEN_WEBUI_RAG_EMBEDDING_MODEL="${OPEN_WEBUI_RAG_EMBEDDING_MODEL:-nomic-embed-text:latest}"
-OPEN_WEBUI_RAG_EMBEDDING_BATCH_SIZE="${OPEN_WEBUI_RAG_EMBEDDING_BATCH_SIZE:-16}"
-OPEN_WEBUI_RAG_EMBEDDING_CONCURRENT_REQUESTS="${OPEN_WEBUI_RAG_EMBEDDING_CONCURRENT_REQUESTS:-1}"
-ENABLE_OPEN_WEBUI_PDF_AUTO_INDEX="${ENABLE_OPEN_WEBUI_PDF_AUTO_INDEX:-true}"
-OPEN_WEBUI_PDF_KNOWLEDGE_DESCRIPTION_TEMPLATE="${OPEN_WEBUI_PDF_KNOWLEDGE_DESCRIPTION_TEMPLATE:-Git-backed PDF references from PDFS/{collection}}"
+RAG_EMBEDDING_MODEL="${RAG_EMBEDDING_MODEL:-nomic-embed-text:latest}"
 ENABLE_OPENCLAW="${ENABLE_OPENCLAW:-true}"
 OPENCLAW_GATEWAY_PORT="${OPENCLAW_GATEWAY_PORT:-18789}"
 OPENCLAW_GATEWAY_BIND="${OPENCLAW_GATEWAY_BIND:-loopback}"
 OPENCLAW_GATEWAY_AUTH="${OPENCLAW_GATEWAY_AUTH:-token}"
 OPENCLAW_ALLOWED_ORIGINS="${OPENCLAW_ALLOWED_ORIGINS:-}"
 OPENCLAW_ALLOW_HOST_HEADER_ORIGIN_FALLBACK="${OPENCLAW_ALLOW_HOST_HEADER_ORIGIN_FALLBACK:-false}"
-ENABLE_ANYTHINGLLM="${ENABLE_ANYTHINGLLM:-false}"
-ENABLE_ANYTHINGLLM_PDF_AUTO_INDEX="${ENABLE_ANYTHINGLLM_PDF_AUTO_INDEX:-false}"
+ENABLE_ANYTHINGLLM="${ENABLE_ANYTHINGLLM:-true}"
+ENABLE_ANYTHINGLLM_PDF_AUTO_INDEX="${ENABLE_ANYTHINGLLM_PDF_AUTO_INDEX:-true}"
 ANYTHINGLLM_DIR="${ANYTHINGLLM_DIR:-/workspace/anything-llm}"
 ANYTHINGLLM_REPO="${ANYTHINGLLM_REPO:-https://github.com/Mintplex-Labs/anything-llm.git}"
 ANYTHINGLLM_PUBLIC_PORT="${ANYTHINGLLM_PUBLIC_PORT:-3001}"
@@ -72,9 +59,7 @@ restore_rag_cache() {
   fi
 
   log "Restoring S3 RAG cache from bucket $RAG_S3_BUCKET using cache ID $RAG_S3_CACHE_ID."
-  DATA_DIR="${DATA_DIR:-/workspace/open-webui}" \
-    OPEN_WEBUI_DATA_DIR="${DATA_DIR:-/workspace/open-webui}" \
-    ANYTHINGLLM_STORAGE_DIR="$ANYTHINGLLM_STORAGE_DIR" \
+  ANYTHINGLLM_STORAGE_DIR="$ANYTHINGLLM_STORAGE_DIR" \
     ENABLE_RAG_S3_CACHE="$ENABLE_RAG_S3_CACHE" \
     RAG_S3_CACHE_ID="$RAG_S3_CACHE_ID" \
     RAG_S3_REGION="$RAG_S3_REGION" \
@@ -103,9 +88,7 @@ save_rag_cache() {
   fi
 
   log "Saving S3 RAG cache to bucket $RAG_S3_BUCKET using cache ID $RAG_S3_CACHE_ID."
-  DATA_DIR="${DATA_DIR:-/workspace/open-webui}" \
-    OPEN_WEBUI_DATA_DIR="${DATA_DIR:-/workspace/open-webui}" \
-    ANYTHINGLLM_STORAGE_DIR="$ANYTHINGLLM_STORAGE_DIR" \
+  ANYTHINGLLM_STORAGE_DIR="$ANYTHINGLLM_STORAGE_DIR" \
     ENABLE_RAG_S3_CACHE="$ENABLE_RAG_S3_CACHE" \
     RAG_S3_CACHE_ID="$RAG_S3_CACHE_ID" \
     RAG_S3_REGION="$RAG_S3_REGION" \
@@ -176,26 +159,6 @@ ensure_ollama() {
 
   log "Ollama is not installed. Installing Ollama."
   curl -fsSL https://ollama.com/install.sh | sh
-}
-
-ensure_open_webui() {
-  if [ -x "$OPEN_WEBUI_VENV/bin/open-webui" ]; then
-    return 0
-  fi
-
-  log "Open WebUI is not installed in $OPEN_WEBUI_VENV. Installing with pip."
-  if command -v python3 >/dev/null 2>&1; then
-    python3 -m venv "$OPEN_WEBUI_VENV"
-    "$OPEN_WEBUI_VENV/bin/python" -m pip install --upgrade pip > /tmp/open-webui-install.log 2>&1
-    "$OPEN_WEBUI_VENV/bin/python" -m pip install --no-cache-dir --upgrade open-webui >> /tmp/open-webui-install.log 2>&1
-  elif command -v python >/dev/null 2>&1; then
-    python -m venv "$OPEN_WEBUI_VENV"
-    "$OPEN_WEBUI_VENV/bin/python" -m pip install --upgrade pip > /tmp/open-webui-install.log 2>&1
-    "$OPEN_WEBUI_VENV/bin/python" -m pip install --no-cache-dir --upgrade open-webui >> /tmp/open-webui-install.log 2>&1
-  else
-    log "Python is required to install Open WebUI."
-    return 1
-  fi
 }
 
 ensure_openclaw() {
@@ -443,230 +406,11 @@ pull_model() {
 }
 
 pull_embedding_model() {
-  case "$(printf '%s' "$ENABLE_OPEN_WEBUI_FAST_RAG" | tr '[:upper:]' '[:lower:]')" in
-    true|1|yes|y|on) ;;
-    *)
-      log "Skipping RAG embedding model pull because ENABLE_OPEN_WEBUI_FAST_RAG=$ENABLE_OPEN_WEBUI_FAST_RAG."
-      return 0
-      ;;
-  esac
-
-  log "Pulling Ollama embedding model $OPEN_WEBUI_RAG_EMBEDDING_MODEL."
-  ollama pull "$OPEN_WEBUI_RAG_EMBEDDING_MODEL" || {
-    log "Embedding model pull failed; Open WebUI may fall back to slower local embeddings."
+  log "Pulling Ollama embedding model $RAG_EMBEDDING_MODEL for AnythingLLM RAG."
+  ollama pull "$RAG_EMBEDDING_MODEL" || {
+    log "Embedding model pull failed; AnythingLLM RAG indexing may fail."
     return 1
   }
-}
-
-start_open_webui() {
-  log "Starting Open WebUI on port $OPEN_WEBUI_PORT."
-  export OLLAMA_BASE_URL="http://localhost:$OLLAMA_PROXY_PORT"
-  export WEBUI_AUTH="${WEBUI_AUTH:-True}"
-  export DATA_DIR="${DATA_DIR:-/workspace/open-webui}"
-  mkdir -p "$DATA_DIR"
-  nohup "$OPEN_WEBUI_VENV/bin/open-webui" serve --host 0.0.0.0 --port "$OPEN_WEBUI_PORT" > /tmp/open-webui.log 2>&1 &
-}
-
-stop_open_webui() {
-  pkill -f "$OPEN_WEBUI_VENV/bin/open-webui serve --host 0.0.0.0 --port $OPEN_WEBUI_PORT" 2>/dev/null || true
-}
-
-restart_open_webui() {
-  log "Restarting Open WebUI so updated runtime configuration is active."
-  stop_open_webui
-  sleep 3
-  start_open_webui
-}
-
-wait_for_open_webui() {
-  log "Waiting for Open WebUI on http://localhost:$OPEN_WEBUI_PORT."
-  for _ in $(seq 1 180); do
-    if curl -fsS "http://localhost:$OPEN_WEBUI_PORT/api/version" >/dev/null 2>&1; then
-      log "Open WebUI is ready."
-      return 0
-    fi
-    sleep 1
-  done
-
-  log "Open WebUI did not become ready within 180 seconds."
-  return 1
-}
-
-start_open_webui_memory_proxy() {
-  if [ ! -f "$MEMORY_DIR/open_webui_memory_proxy.py" ]; then
-    return 0
-  fi
-
-  log "Starting Open WebUI memory proxy on localhost:$OLLAMA_PROXY_PORT."
-  COMBINED_CONTEXT="$COMBINED_CONTEXT" \
-    OPEN_WEBUI_MEMORY_PROXY_PORT="$OLLAMA_PROXY_PORT" \
-    OLLAMA_UPSTREAM_URL="http://$OLLAMA_UPSTREAM_HOST" \
-    nohup python3 "$MEMORY_DIR/open_webui_memory_proxy.py" > /tmp/open-webui-memory-proxy-$OLLAMA_PROXY_PORT.log 2>&1 &
-  if [ "$OPEN_WEBUI_MEMORY_PROXY_PORT" != "$OLLAMA_PROXY_PORT" ]; then
-    log "Starting compatibility memory proxy on localhost:$OPEN_WEBUI_MEMORY_PROXY_PORT."
-    COMBINED_CONTEXT="$COMBINED_CONTEXT" \
-      OPEN_WEBUI_MEMORY_PROXY_PORT="$OPEN_WEBUI_MEMORY_PROXY_PORT" \
-      OLLAMA_UPSTREAM_URL="http://$OLLAMA_UPSTREAM_HOST" \
-      nohup python3 "$MEMORY_DIR/open_webui_memory_proxy.py" > /tmp/open-webui-memory-proxy.log 2>&1 &
-  fi
-}
-
-configure_open_webui_fast_rag() {
-  case "$(printf '%s' "$ENABLE_OPEN_WEBUI_FAST_RAG" | tr '[:upper:]' '[:lower:]')" in
-    true|1|yes|y|on) ;;
-    *)
-      log "Skipping fast Open WebUI RAG config because ENABLE_OPEN_WEBUI_FAST_RAG=$ENABLE_OPEN_WEBUI_FAST_RAG."
-      return 0
-      ;;
-  esac
-
-  log "Configuring Open WebUI RAG embeddings to use Ollama model $OPEN_WEBUI_RAG_EMBEDDING_MODEL."
-  for _ in $(seq 1 60); do
-    if [ -f "${DATA_DIR:-/workspace/open-webui}/webui.db" ]; then
-      python3 - \
-        "${DATA_DIR:-/workspace/open-webui}/webui.db" \
-        "$OPEN_WEBUI_RAG_EMBEDDING_MODEL" \
-        "$OPEN_WEBUI_RAG_EMBEDDING_BATCH_SIZE" \
-        "$OPEN_WEBUI_RAG_EMBEDDING_CONCURRENT_REQUESTS" <<'PY' || true
-import json
-import sqlite3
-import sys
-import time
-
-db_path, embedding_model, batch_size, concurrent_requests = sys.argv[1:5]
-updates = {
-    "rag.embedding_engine": "ollama",
-    "rag.embedding_model": embedding_model,
-    "rag.ollama.base_url": "http://localhost:11434",
-    "rag.embedding_batch_size": int(batch_size),
-    "rag.embedding_concurrent_requests": int(concurrent_requests),
-    "rag.enable_async_embedding": True,
-}
-con = sqlite3.connect(db_path)
-now = int(time.time())
-for key, value in updates.items():
-    con.execute(
-        "insert into config (key, value, updated_at) values (?, ?, ?) "
-        "on conflict(key) do update set value = excluded.value, updated_at = excluded.updated_at",
-        (key, json.dumps(value), now),
-    )
-con.commit()
-PY
-      return 0
-    fi
-    sleep 1
-  done
-
-  log "Open WebUI database was not ready; skipping fast RAG configuration."
-}
-
-configure_open_webui_proxy_url() {
-  log "Configuring Open WebUI to use memory proxy."
-  for _ in $(seq 1 60); do
-    if [ -f "${DATA_DIR:-/workspace/open-webui}/webui.db" ]; then
-      python3 - "${DATA_DIR:-/workspace/open-webui}/webui.db" "$OLLAMA_PROXY_PORT" "$OLLAMA_MODEL" <<'PY' || true
-import json
-import sqlite3
-import sys
-import time
-
-db_path, port, model = sys.argv[1:4]
-con = sqlite3.connect(db_path)
-now = int(time.time())
-updates = {
-    "ollama.base_urls": [f"http://localhost:{port}"],
-    "openai.enable": False,
-    "memories.enable": False,
-    "memories.system_context.enable": False,
-    "memories.background_review.enable": False,
-    "models.default_metadata": {"capabilities": {"memory": False}},
-    "ui.default_models": model,
-    "ui.default_pinned_models": model,
-}
-for key, value in updates.items():
-    con.execute(
-        "insert into config (key, value, updated_at) values (?, ?, ?) "
-        "on conflict(key) do update set value = excluded.value, updated_at = excluded.updated_at",
-        (key, json.dumps(value), now),
-    )
-row = con.execute("select value from config where key = ?", ("user.permissions",)).fetchone()
-try:
-    permissions = json.loads(row[0]) if row and row[0] else {}
-except Exception:
-    permissions = {}
-if not isinstance(permissions, dict):
-    permissions = {}
-features = permissions.setdefault("features", {})
-if isinstance(features, dict):
-    features["memories"] = False
-con.execute(
-    "insert into config (key, value, updated_at) values (?, ?, ?) "
-    "on conflict(key) do update set value = excluded.value, updated_at = excluded.updated_at",
-    ("user.permissions", json.dumps(permissions), now),
-)
-con.commit()
-PY
-      return 0
-    fi
-    sleep 1
-  done
-
-  log "Open WebUI database was not ready; skipping proxy URL configuration."
-}
-
-auto_index_open_webui_pdfs() {
-  case "$(printf '%s' "$ENABLE_OPEN_WEBUI_PDF_AUTO_INDEX" | tr '[:upper:]' '[:lower:]')" in
-    true|1|yes|y|on) ;;
-    *)
-      log "Skipping Open WebUI PDF auto-index because ENABLE_OPEN_WEBUI_PDF_AUTO_INDEX=$ENABLE_OPEN_WEBUI_PDF_AUTO_INDEX."
-      return 0
-      ;;
-  esac
-
-  if [ ! -f "$MEMORY_DIR/auto_index_open_webui_pdfs.py" ]; then
-    log "PDF auto-index script is missing; skipping."
-    return 0
-  fi
-
-  log "Starting Open WebUI PDF auto-index for $MEMORY_DIR/PDFS."
-  DATA_DIR="${DATA_DIR:-/workspace/open-webui}" \
-    MEMORY_DIR="$MEMORY_DIR" \
-    OPEN_WEBUI_URL="http://127.0.0.1:$OPEN_WEBUI_PORT" \
-    OPEN_WEBUI_PDF_KNOWLEDGE_DESCRIPTION_TEMPLATE="$OPEN_WEBUI_PDF_KNOWLEDGE_DESCRIPTION_TEMPLATE" \
-    WEBUI_SECRET_KEY_FILE="$MEMORY_DIR/.webui_secret_key" \
-    nohup "$OPEN_WEBUI_VENV/bin/python" "$MEMORY_DIR/auto_index_open_webui_pdfs.py" \
-      > /tmp/open-webui-pdf-auto-index.log 2>&1 &
-}
-
-bootstrap_open_webui_admin() {
-  case "$(printf '%s' "$OPEN_WEBUI_BOOTSTRAP_ADMIN" | tr '[:upper:]' '[:lower:]')" in
-    true|1|yes|y|on) ;;
-    *)
-      return 0
-      ;;
-  esac
-
-  if [ ! -f "$MEMORY_DIR/bootstrap_open_webui_admin.py" ]; then
-    log "Open WebUI admin bootstrap script is missing; skipping admin bootstrap."
-    return 0
-  fi
-
-  if [ -z "$OPEN_WEBUI_ADMIN_EMAIL" ]; then
-    log "OPEN_WEBUI_BOOTSTRAP_ADMIN is enabled but OPEN_WEBUI_ADMIN_EMAIL is empty; skipping admin bootstrap."
-    return 0
-  fi
-
-  log "Bootstrapping Open WebUI admin account for $OPEN_WEBUI_ADMIN_EMAIL."
-  DATA_DIR="${DATA_DIR:-/workspace/open-webui}" \
-    OPEN_WEBUI_BOOTSTRAP_ADMIN="$OPEN_WEBUI_BOOTSTRAP_ADMIN" \
-    OPEN_WEBUI_ADMIN_EMAIL="$OPEN_WEBUI_ADMIN_EMAIL" \
-    OPEN_WEBUI_ADMIN_NAME="$OPEN_WEBUI_ADMIN_NAME" \
-    OPEN_WEBUI_ADMIN_PASSWORD="${OPEN_WEBUI_ADMIN_PASSWORD:-}" \
-    OPEN_WEBUI_ADMIN_PASSWORD_FILE="$OPEN_WEBUI_ADMIN_PASSWORD_FILE" \
-    "$OPEN_WEBUI_VENV/bin/python" "$MEMORY_DIR/bootstrap_open_webui_admin.py" || {
-      log "Open WebUI admin bootstrap failed."
-      return 1
-    }
 }
 
 ensure_node20_for_anythingllm() {
@@ -794,7 +538,7 @@ configure_anythingllm_env() {
     "$ANYTHINGLLM_INTERNAL_PORT" \
     "http://127.0.0.1:${OLLAMA_UPSTREAM_HOST##*:}" \
     "$OLLAMA_MODEL" \
-    "$OPEN_WEBUI_RAG_EMBEDDING_MODEL" \
+    "$RAG_EMBEDDING_MODEL" \
     "$ANYTHINGLLM_STORAGE_DIR" \
     "$ANYTHINGLLM_JWT_SECRET" <<'PY'
 from pathlib import Path
@@ -1020,9 +764,6 @@ print_details() {
 
 Disposable RunPod AI pod is starting.
 
-Open WebUI:
-  http://<RUNPOD_HOST_OR_PROXY>:${OPEN_WEBUI_PORT}
-
 AnythingLLM:
   http://<RUNPOD_HOST_OR_PROXY>:${ANYTHINGLLM_PUBLIC_PORT}
 
@@ -1046,15 +787,10 @@ Combined context:
 
 Logs:
   /tmp/ollama.log
-  /tmp/open-webui.log
   /tmp/autosync-memory.log
   ${ANYTHINGLLM_DEPLOY_DIR}/logs/server.log
   ${ANYTHINGLLM_DEPLOY_DIR}/logs/collector.log
   /tmp/anythingllm-pdf-auto-index.log
-
-Open WebUI bootstrap admin:
-  Email: ${OPEN_WEBUI_ADMIN_EMAIL:-disabled}
-  Pod-local password file: ${OPEN_WEBUI_ADMIN_PASSWORD_FILE}
 
 Security:
   Do not expose Ollama publicly without protection. Prefer SSH tunnel, VPN,
@@ -1076,7 +812,6 @@ fi
 install_packages
 ensure_repo
 chmod +x "$MEMORY_DIR/start.sh" "$MEMORY_DIR/load_memory.sh" "$MEMORY_DIR/sync_memory.sh" "$MEMORY_DIR/autosync_memory.sh"
-chmod +x "$MEMORY_DIR/auto_index_open_webui_pdfs.py" 2>/dev/null || true
 chmod +x "$MEMORY_DIR/auto_index_anythingllm_pdfs.py" 2>/dev/null || true
 chmod +x "$MEMORY_DIR/restore_rag_cache.sh" 2>/dev/null || true
 chmod +x "$MEMORY_DIR/save_rag_cache.sh" 2>/dev/null || true
@@ -1085,26 +820,8 @@ trap save_rag_cache_on_shutdown INT TERM
 ensure_ollama
 start_ollama
 wait_for_ollama
-start_open_webui_memory_proxy
 pull_model
 pull_embedding_model || true
-if ensure_open_webui; then
-  restore_rag_cache
-  start_open_webui
-  wait_for_open_webui || true
-  configure_open_webui_proxy_url
-  configure_open_webui_fast_rag
-  bootstrap_open_webui_admin || true
-  case "$(printf '%s' "$ENABLE_OPEN_WEBUI_FAST_RAG" | tr '[:upper:]' '[:lower:]')" in
-    true|1|yes|y|on)
-      restart_open_webui
-      wait_for_open_webui || true
-      ;;
-  esac
-  auto_index_open_webui_pdfs
-else
-  log "Open WebUI install failed. See /tmp/open-webui-install.log. Continuing with Ollama, SSH, and memory sync."
-fi
 start_autosync
 ensure_anythingllm > /tmp/anythingllm-setup.log 2>&1 || log "AnythingLLM setup failed. See /tmp/anythingllm-setup.log and ${ANYTHINGLLM_DEPLOY_DIR}/logs/server.log if it started."
 restore_rag_cache

@@ -12,7 +12,7 @@ The source CMG and CMM documents remain in `PDFS/Nokia/`. On pod startup, Anythi
 
 In the verified 2026-08-10 runtime, AnythingLLM ran on internal port `3010`, was exposed through nginx on port `3001`, used Ollama with `qwen3-coder:30b`, and used local LanceDB runtime storage.
 
-The RunPod base image may already define nginx port `3001` for another UI. Startup must remove existing `listen 3001` nginx server blocks before adding the AnythingLLM proxy, or the public AnythingLLM URL can incorrectly display Open WebUI.
+The RunPod base image may already define nginx port `3001` for another UI. Startup must remove existing `listen 3001` nginx server blocks before adding the AnythingLLM proxy.
 
 RunPod network volumes are no longer part of the recreate path. Persistent AnythingLLM RAG/vector reuse should use the RunPod S3-compatible cache target `lp8wr68ped`.
 

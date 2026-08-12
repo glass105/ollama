@@ -10,12 +10,11 @@
 - Ollama should not be exposed publicly without authentication or another protective access layer.
 - Approved RunPod GPUs are RTX 4000 Ada, RTX A4000, RTX A4500, and RTX A5000.
 - If none of the approved GPUs are available, stop and ask before using another GPU.
-- Open WebUI RAG embeddings should use Ollama with `nomic-embed-text:latest` instead of the default local CPU sentence-transformer path.
-- Open WebUI PDF Knowledge indexing should scan Git-backed PDF subdirectories in `PDFS/` at startup; each immediate subdirectory becomes an Open WebUI Knowledge collection with the same name.
-- The chat memory proxy should default to a smaller `num_ctx` (`8192`) and bounded `num_predict` (`768`) for faster responses; these can be overridden with environment variables.
-- Open WebUI admin bootstrap may create an initial admin user from environment variables, but generated passwords must remain pod-local and must not be committed.
-- AnythingLLM is optional but, when enabled, should run on internal port `3010` and be exposed on public port `3001`.
-- The RunPod base image can include an existing nginx `listen 3001` server block that proxies to Open WebUI. Startup must remove any pre-existing nginx server block for the AnythingLLM public port before installing the AnythingLLM proxy.
+- Open WebUI is removed from future pod launches as of 2026-08-12.
+- AnythingLLM is the primary web UI and RAG layer. It should run on internal port `3010` and be exposed on public port `3001`.
+- AnythingLLM RAG embeddings should use Ollama with `nomic-embed-text:latest`.
+- AnythingLLM PDF/XLSX indexing should scan Git-backed reference subdirectories in `PDFS/` at startup; each immediate subdirectory becomes an AnythingLLM workspace with the same name.
+- The RunPod base image can include an existing nginx `listen 3001` server block. Startup must remove any pre-existing nginx server block for the AnythingLLM public port before installing the AnythingLLM proxy.
 - AnythingLLM frontend builds must use relative API calls (`VITE_API_BASE='/api'`) so browser clients do not try to call `localhost:3001`.
 - AnythingLLM vector stores, LanceDB files, SQLite databases, uploaded runtime files, generated API keys, and logs are runtime state and must not be committed.
 - For CMM-specific questions in AnythingLLM, prefer a prompt that restricts retrieval to `cmm_cli_reference_guide.pdf`; otherwise retrieval may mix CMM and CMG documents in the same workspace.
@@ -27,5 +26,5 @@
 - As of 2026-08-12, Git-backed Nokia references include both CMG and CMM assets.
 - `PDFS/Nokia/cmm_cli_reference_guide.pdf` is the durable CMM CLI reference source.
 - `PDFS/Nokia/CMM_Alarms.xlsx` is the durable CMM alarm spreadsheet source and is converted to Markdown text by the RAG indexers before embedding.
-- Open WebUI and AnythingLLM auto-indexers should scan both `*.pdf` and `*.xlsx` under `PDFS/<collection>/`.
+- AnythingLLM auto-indexing should scan both `*.pdf` and `*.xlsx` under `PDFS/<collection>/`.
 - For precise CMM command answers, prompts should explicitly name `cmm_cli_reference_guide.pdf` to avoid mixing CMG and CMM retrieval results from the shared `Nokia` collection/workspace.

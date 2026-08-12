@@ -16,10 +16,12 @@ Hard rules:
 - Do not use RunPod network storage.
 - Do not use persistent RunPod volume storage.
 - Set RunPod volumeInGb=0.
-- Do not store models, secrets, keys, tokens, logs, caches, databases, or OpenClaw runtime state in GitHub.
-- GitHub is only for scripts, configuration, prompts, Markdown memory, PDFs, and images.
+- Do not store models, secrets, keys, tokens, logs, caches, databases, vector stores, or OpenClaw runtime state in GitHub.
+- GitHub is only for scripts, configuration, prompts, Markdown memory, PDFs, spreadsheets, and images.
 - The model can be re-downloaded when a fresh pod starts.
 - Use qwen3-coder:30b as the default model.
+- AnythingLLM is the primary web UI and RAG layer.
+- Do not include Open WebUI in this setup.
 - Approved RunPod GPUs only:
   - NVIDIA RTX 4000 Ada Generation
   - NVIDIA RTX A4000
@@ -35,11 +37,14 @@ Pipeline:
    - start.sh
    - load_memory.sh
    - ask_with_memory.sh
-   - open_webui_memory_proxy.py
    - sync_memory.sh
    - autosync_memory.sh
+   - restore_rag_cache.sh
+   - save_rag_cache.sh
+   - auto_index_anythingllm_pdfs.py
 4. Ensure memory loads locally with load_memory.sh.
-5. Create a RunPod pod using REST API:
+5. Ask whether to enable the S3 RAG cache. If yes, use cache ID `lp8wr68ped`; if no, rebuild RAG from Git-backed PDFs/XLSX files.
+6. Create a RunPod pod using REST API:
    - name: ollama-qwen3-coder-disposable
    - imageName: runpod/pytorch:1.0.3-cu1281-torch291-ubuntu2404
    - cloudType: SECURE
@@ -53,76 +58,83 @@ Pipeline:
    - gpuTypePriority: custom
    - containerDiskInGb: 120
    - volumeInGb: 0
+   - no networkVolumeId
    - ports:
-     - 3000/http
+     - 3001/http
      - 18789/http
      - 22/tcp
-6. Include env:
+7. Include env:
    - GITHUB_MEMORY_REPO=https://github.com/glass105/ollama.git
    - GITHUB_BRANCH=main
    - MEMORY_DIR=/workspace/ollama-memory
    - COMBINED_CONTEXT=/workspace/current_context.md
    - OLLAMA_MODEL=qwen3-coder:30b
-   - OPEN_WEBUI_MEMORY_PROXY_PORT=11435
-   - OLLAMA_HOST=0.0.0.0:11434
-   - OPEN_WEBUI_PORT=3000
-   - OPEN_WEBUI_BOOTSTRAP_ADMIN=true
-   - OPEN_WEBUI_ADMIN_EMAIL=joercoleman@mail.com
-   - OPEN_WEBUI_ADMIN_NAME=Joseph Coleman
+   - OLLAMA_HOST=127.0.0.1:11434
    - ENABLE_MODEL_PULL=true
+   - RAG_EMBEDDING_MODEL=nomic-embed-text:latest
+   - ENABLE_ANYTHINGLLM=true
+   - ENABLE_ANYTHINGLLM_PDF_AUTO_INDEX=true
+   - ANYTHINGLLM_PUBLIC_PORT=3001
+   - ANYTHINGLLM_INTERNAL_PORT=3010
+   - ANYTHINGLLM_PDF_DIR=/workspace/ollama-memory/PDFS
    - SYNC_INTERVAL_SECONDS=1800
    - ENABLE_OPENCLAW=true
    - OPENCLAW_GATEWAY_PORT=18789
    - OPENCLAW_GATEWAY_BIND=lan
    - OPENCLAW_GATEWAY_AUTH=token
    - OPENCLAW_GATEWAY_TOKEN=<generate a random token locally, do not commit it>
-7. Use this pod startup command:
+8. If S3 RAG cache is enabled, include:
+   - ENABLE_RAG_S3_CACHE=true
+   - RAG_S3_CACHE_ID=lp8wr68ped
+   - RAG_S3_REGION=us-nc-1
+   - RAG_S3_ENDPOINT=https://s3api-us-nc-1.runpod.io
+   - RAG_S3_BUCKET=lp8wr68ped
+   - RAG_S3_PREFIX=ollama-rag-cache
+   - RAG_S3_ACCESS_KEY_ID=<secret, do not commit>
+   - RAG_S3_SECRET_ACCESS_KEY=<secret, do not commit>
+9. Use this pod startup command:
    cd /workspace && \
    git clone https://github.com/glass105/ollama.git ollama-memory || true && \
    cd /workspace/ollama-memory && \
    git pull && \
-   chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh restore_rag_cache.sh save_rag_cache.sh auto_index_open_webui_pdfs.py auto_index_anythingllm_pdfs.py && \
+   chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh restore_rag_cache.sh save_rag_cache.sh auto_index_anythingllm_pdfs.py && \
    bash start.sh
-8. If SSH is needed, preserve RunPod default startup by launching /start.sh in the background before the repo startup command.
-9. Poll the pod until public IP and SSH port are available.
-10. Verify inside the pod:
+10. If SSH is needed, preserve RunPod default startup by launching /start.sh in the background before the repo startup command.
+11. Poll the pod until public IP and SSH port are available.
+12. Verify inside the pod:
     - volumeInGb is 0 from RunPod API
     - nvidia-smi shows an approved GPU
     - /workspace/current_context.md exists
-    - ollama API responds at localhost:11434
+    - Ollama responds at localhost:11434
     - ollama list includes qwen3-coder:30b
-    - Open WebUI memory proxy responds on localhost:11435
-    - Open WebUI uses the memory proxy URL http://localhost:11435 for Ollama
-    - Open WebUI memory chats use qwen3-coder:30b through the memory proxy
-    - Open WebUI responds on localhost:3000
-    - Open WebUI admin exists for joercoleman@mail.com
-    - Open WebUI bootstrap password is saved pod-locally at /tmp/open-webui-admin-password
+    - ollama list includes nomic-embed-text:latest
+    - AnythingLLM responds on localhost:3001
+    - AnythingLLM uses Ollama/qwen3-coder:30b
+    - AnythingLLM auto-indexed PDFs/XLSX files under PDFS/<folder>/ into matching workspaces
     - OpenClaw gateway responds on localhost:18789
     - OpenClaw default model is ollama/qwen3-coder:30b
     - `bash /workspace/ollama-memory/ask_with_memory.sh "What is this pod setup?"` answers using the Markdown memory
-11. Expose:
-    - Open WebUI:
-      https://<POD_ID>-3000.proxy.runpod.net/
+13. Expose:
+    - AnythingLLM:
+      https://<POD_ID>-3001.proxy.runpod.net/
     - OpenClaw:
       https://<POD_ID>-18789.proxy.runpod.net/
-12. If OpenClaw browser says "Browser origin not allowed," set:
+14. If OpenClaw browser says "Browser origin not allowed," set:
     gateway.controlUi.allowedOrigins = [
       "https://<POD_ID>-18789.proxy.runpod.net"
     ]
     and restart the OpenClaw gateway.
-13. If RunPod proxy still fails origin checks, temporarily set:
-    gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback=true
-    but keep token auth enabled.
-14. If OpenClaw says "Device pairing required," run:
+15. If OpenClaw says "Device pairing required," run:
     openclaw devices approve <REQUEST_ID> --url ws://127.0.0.1:18789 --token <TOKEN>
-15. Final output must include:
+16. Final output must include:
     - Pod ID
     - GPU used
     - volumeInGb
+    - whether S3 RAG cache was used
     - SSH command
-    - Open WebUI URL
+    - AnythingLLM URL
     - OpenClaw Dashboard URL
-    - where the local token file is saved
+    - where local secret files are saved
     - verification checklist
 
 Save generated OpenClaw tokens locally only, for example:
