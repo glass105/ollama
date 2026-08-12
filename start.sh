@@ -245,7 +245,22 @@ Treat questions phrased as "can you read...", "can you search...", "can you acce
 For example, "Can you search the CMG CLI guide?" requires a visible answer about whether the guide is available and how to query it.
 
 EOF
-  for workspace_file in AGENTS.md SOUL.md HEARTBEAT.md; do
+  local anythingllm_tool_rule="/tmp/openclaw-anythingllm-tool-rule.md"
+  cat > "$anythingllm_tool_rule" <<'EOF'
+# AnythingLLM RAG Tool
+
+AnythingLLM is the primary RAG layer for Git-backed PDFs and XLSX files.
+For questions about PDF, XLSX, CMM, CMG, Nokia, commands, alarms, or reference documents, call the local helper before answering:
+
+```bash
+/workspace/ollama-memory/anythingllm_query.sh Nokia "<question>"
+```
+
+Use the returned answer and sources in your reply. Do not read LanceDB/vector files directly. Do not print API keys or token files.
+If the user asks whether you can read or search a guide, answer visibly and offer to use the helper.
+
+EOF
+  for workspace_file in AGENTS.md SOUL.md HEARTBEAT.md TOOLS.md; do
     local workspace_path="/root/.openclaw/workspace/$workspace_file"
     touch "$workspace_path"
     if ! grep -q "Disposable RunPod WebChat Visible Reply Rule" "$workspace_path"; then
@@ -253,6 +268,12 @@ EOF
       workspace_tmp="$(mktemp)"
       cat "$visible_reply_rule" "$workspace_path" > "$workspace_tmp"
       mv "$workspace_tmp" "$workspace_path"
+    fi
+    if ! grep -q "AnythingLLM RAG Tool" "$workspace_path"; then
+      local tool_tmp
+      tool_tmp="$(mktemp)"
+      cat "$anythingllm_tool_rule" "$workspace_path" > "$tool_tmp"
+      mv "$tool_tmp" "$workspace_path"
     fi
   done
   python3 - <<'PY'
@@ -813,6 +834,7 @@ install_packages
 ensure_repo
 chmod +x "$MEMORY_DIR/start.sh" "$MEMORY_DIR/load_memory.sh" "$MEMORY_DIR/sync_memory.sh" "$MEMORY_DIR/autosync_memory.sh"
 chmod +x "$MEMORY_DIR/auto_index_anythingllm_pdfs.py" 2>/dev/null || true
+chmod +x "$MEMORY_DIR/query_anythingllm.py" "$MEMORY_DIR/anythingllm_query.sh" 2>/dev/null || true
 chmod +x "$MEMORY_DIR/restore_rag_cache.sh" 2>/dev/null || true
 chmod +x "$MEMORY_DIR/save_rag_cache.sh" 2>/dev/null || true
 trap save_rag_cache_on_shutdown INT TERM

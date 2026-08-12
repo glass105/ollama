@@ -23,3 +23,14 @@ Then local OpenClaw uses:
 OLLAMA_BASE_URL=http://localhost:11434
 MODEL=qwen3-coder:30b
 ```
+
+## AnythingLLM RAG Access
+
+OpenClaw should use AnythingLLM indirectly through the local API helper for reference-document questions:
+
+```bash
+cd /workspace/ollama-memory
+bash anythingllm_query.sh Nokia "Using cmm_cli_reference_guide.pdf, what command shows all interfaces?"
+```
+
+AnythingLLM remains the owner of ingestion, retrieval, workspaces, and source metadata. OpenClaw should not read LanceDB/vector files directly and should never print AnythingLLM API keys.

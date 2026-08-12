@@ -18,6 +18,14 @@ RunPod network volumes are no longer part of the recreate path. Persistent Anyth
 
 The S3 RAG cache should store only vector-facing snapshots and manifests, such as AnythingLLM LanceDB state, document JSON, vector cache, and sanitized manifest files. It must not store secrets, generated API keys, full auth databases, model files, logs, or OpenClaw runtime state.
 
+OpenClaw can query AnythingLLM RAG indirectly through the pod-local helper:
+
+```bash
+/workspace/ollama-memory/anythingllm_query.sh Nokia "<question>"
+```
+
+This calls the AnythingLLM workspace API and returns the RAG-grounded answer and source metadata. OpenClaw should not read LanceDB/vector files directly.
+
 Verified 2026-08-12:
 
 - `PDFS/Nokia/cmm_cli_reference_guide.pdf` is Git-backed and indexed in AnythingLLM workspace `Nokia`.

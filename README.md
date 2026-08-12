@@ -66,7 +66,7 @@ cd /workspace && \
 git clone https://github.com/glass105/ollama.git ollama-memory || true && \
 cd /workspace/ollama-memory && \
 git pull && \
-chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh restore_rag_cache.sh save_rag_cache.sh auto_index_anythingllm_pdfs.py && \
+chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh restore_rag_cache.sh save_rag_cache.sh auto_index_anythingllm_pdfs.py query_anythingllm.py anythingllm_query.sh && \
 bash start.sh
 ```
 
@@ -197,6 +197,17 @@ MODEL=qwen3-coder:30b
 ```
 
 OpenClaw is configured to use `ollama/qwen3-coder:30b`, with a 66k context window and visible direct WebChat replies.
+
+## OpenClaw And AnythingLLM RAG
+
+OpenClaw does not read the AnythingLLM LanceDB/vector database directly. It should call the local AnythingLLM API helper and let AnythingLLM handle retrieval:
+
+```bash
+cd /workspace/ollama-memory
+bash anythingllm_query.sh Nokia "Using cmm_cli_reference_guide.pdf, what command shows all interfaces?"
+```
+
+For CMM, CMG, Nokia, PDF, XLSX, command, and alarm questions, OpenClaw is instructed to run that helper first, then answer from the returned AnythingLLM response and source metadata. The helper uses the pod-local AnythingLLM API key at `/tmp/anythingllm-api-key` and must not print or commit it.
 
 ## Manual Sync
 

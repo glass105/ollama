@@ -10,3 +10,4 @@
 - Review memory changes before every push to GitHub.
 - Consider splitting `PDFS/Nokia/` into separate `PDFS/CMM/` and `PDFS/CMG/` collections if retrieval continues to mix CMM and CMG answers.
 - Test an AnythingLLM query against `cmm_cli_reference_guide.pdf` and `CMM_Alarms.xlsx` after each fresh pod/RAG-cache restore.
+- Test OpenClaw calling `anythingllm_query.sh Nokia "<question>"` for CMM and CMG guide questions after each fresh pod launch.

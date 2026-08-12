@@ -28,3 +28,4 @@
 - `PDFS/Nokia/CMM_Alarms.xlsx` is the durable CMM alarm spreadsheet source and is converted to Markdown text by the RAG indexers before embedding.
 - AnythingLLM auto-indexing should scan both `*.pdf` and `*.xlsx` under `PDFS/<collection>/`.
 - For precise CMM command answers, prompts should explicitly name `cmm_cli_reference_guide.pdf` to avoid mixing CMG and CMM retrieval results from the shared `Nokia` collection/workspace.
+- OpenClaw should access AnythingLLM RAG indirectly with `/workspace/ollama-memory/anythingllm_query.sh <workspace> <question>`. AnythingLLM owns ingestion/retrieval; OpenClaw must not read LanceDB/vector files directly.

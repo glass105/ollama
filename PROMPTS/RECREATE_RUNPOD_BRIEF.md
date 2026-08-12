@@ -55,7 +55,7 @@ Use qwen3-coder:30b as the default model.
 Set env for Ollama, AnythingLLM, OpenClaw, Git-backed Markdown memory, PDF/XLSX auto-indexing, and optional S3 RAG-cache restore/upload. Generate OpenClaw tokens locally and never commit them.
 
 Startup command:
-cd /workspace && git clone https://github.com/glass105/ollama.git ollama-memory || true && cd /workspace/ollama-memory && git pull && chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh restore_rag_cache.sh save_rag_cache.sh auto_index_anythingllm_pdfs.py && bash start.sh
+cd /workspace && git clone https://github.com/glass105/ollama.git ollama-memory || true && cd /workspace/ollama-memory && git pull && chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh restore_rag_cache.sh save_rag_cache.sh auto_index_anythingllm_pdfs.py query_anythingllm.py anythingllm_query.sh && bash start.sh
 
 Preserve RunPod SSH by launching /start.sh in the background before repo startup if needed.
 
@@ -67,6 +67,7 @@ Verify:
 - /workspace/current_context.md exists
 - AnythingLLM uses Ollama/qwen3-coder:30b
 - PDF/RAG state is restored from S3 cache or rebuilt/incrementally indexed from PDFs/XLSX files
+- `bash /workspace/ollama-memory/anythingllm_query.sh Nokia "What can you answer from the CMM guide?"` returns an AnythingLLM RAG answer
 
 Final output:
 - Pod ID

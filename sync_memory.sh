@@ -37,7 +37,11 @@ git add README.md \
   sync_memory.sh \
   autosync_memory.sh \
   ask_with_memory.sh \
+  anythingllm_query.sh \
   auto_index_anythingllm_pdfs.py \
+  query_anythingllm.py \
+  restore_rag_cache.sh \
+  save_rag_cache.sh \
   MEMORY/*.md \
   MEMORY/*.MD \
   MEMORY/**/*.md \
