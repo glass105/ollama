@@ -219,6 +219,49 @@ ensure_openclaw() {
   }
 }
 
+patch_openclaw_visible_no_reply() {
+  if ! command -v python3 >/dev/null 2>&1; then
+    return 0
+  fi
+
+  python3 - <<'PY'
+from pathlib import Path
+
+dist = Path("/usr/lib/node_modules/openclaw/dist")
+if not dist.exists():
+    raise SystemExit(0)
+
+replacement = (
+    'if (text && isSilentReplyPayloadText(text, silentToken)) {\\n'
+    '\\t\\ttext = "I received the request, but the model returned OpenClaw\\'s silent NO_REPLY control token instead of an answer. Please retry in a new session with the exact document or command you want searched.";\\n'
+    '\\t}'
+)
+
+for path in dist.glob("normalize-reply-*.js"):
+    text = path.read_text()
+    old = (
+        'if (text && isSilentReplyPayloadText(text, silentToken)) {\\n'
+        '\\t\\tif (!hasContent("")) {\\n'
+        '\\t\\t\\topts.onSkip?.("silent");\\n'
+        '\\t\\t\\treturn null;\\n'
+        '\\t\\t}\\n'
+        '\\t\\ttext = "";\\n'
+        '\\t}'
+    )
+    if old in text and "OpenClaw generated a silent NO_REPLY control token" not in text:
+        path.write_text(text.replace(old, replacement))
+        print(f"patched {path}")
+
+for path in dist.glob("system-prompt-config-*.js"):
+    text = path.read_text()
+    old = 'if (!isMinimal && silentReplyPromptMode !== "none")'
+    new = 'if (!isMinimal && false && silentReplyPromptMode !== "none")'
+    if old in text:
+        path.write_text(text.replace(old, new))
+        print(f"patched {path}")
+PY
+}
+
 configure_openclaw() {
   if ! command -v openclaw >/dev/null 2>&1; then
     return 1
@@ -235,6 +278,8 @@ For direct WebChat messages where `senderIsOwner` is true, always return visible
 Never return `NO_REPLY` to owner/operator greetings, capability checks, document-access questions, troubleshooting prompts, or project-memory checks.
 Use `NO_REPLY` only for actual heartbeat polls, duplicate transport events, or messages that explicitly ask for silence.
 If asked whether you can read a document or file, answer with what you can access and, when useful, inspect the workspace or Git-backed files before responding.
+Treat questions phrased as "can you read...", "can you search...", "can you access...", or "can you use..." as direct requests that require a visible answer. Start with "Yes" or "No", then explain what source or tool you can use.
+For example, "Can you search the CMG CLI guide?" requires a visible answer about whether the guide is available and how to query it.
 
 EOF
   for workspace_file in AGENTS.md SOUL.md HEARTBEAT.md; do
@@ -247,6 +292,16 @@ EOF
       mv "$workspace_tmp" "$workspace_path"
     fi
   done
+  python3 - <<'PY'
+from pathlib import Path
+import re
+
+path = Path("/root/.openclaw/workspace/AGENTS.md")
+if path.exists():
+    text = path.read_text(errors="ignore")
+    text = re.sub(r"\n## Group Chats\n.*?(?=\n## Tools\n)", "\n", text, flags=re.S)
+    path.write_text(text)
+PY
 
   local allowed_origins_json="[]"
   if [ -n "$OPENCLAW_ALLOWED_ORIGINS" ]; then
@@ -339,10 +394,17 @@ start_openclaw_gateway() {
   fi
 
   log "Starting OpenClaw gateway on $OPENCLAW_GATEWAY_BIND:$OPENCLAW_GATEWAY_PORT with auth=$OPENCLAW_GATEWAY_AUTH."
+  local openclaw_token_args=""
+  if [ "$OPENCLAW_GATEWAY_AUTH" = "token" ] && [ -n "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
+    openclaw_token_args="--token $OPENCLAW_GATEWAY_TOKEN"
+  fi
+
+  # shellcheck disable=SC2086
   OPENCLAW_GATEWAY_TOKEN="${OPENCLAW_GATEWAY_TOKEN:-}" nohup openclaw gateway \
     --bind "$OPENCLAW_GATEWAY_BIND" \
     --port "$OPENCLAW_GATEWAY_PORT" \
     --auth "$OPENCLAW_GATEWAY_AUTH" \
+    $openclaw_token_args \
     --allow-unconfigured \
     run \
     > /tmp/openclaw/gateway.log 2>&1 &
@@ -1053,6 +1115,7 @@ auto_index_anythingllm_pdfs
   save_rag_cache
 ) &
 if ensure_openclaw; then
+  patch_openclaw_visible_no_reply || true
   configure_openclaw || true
   start_openclaw_gateway || true
 else
