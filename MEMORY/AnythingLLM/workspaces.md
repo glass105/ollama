@@ -22,7 +22,8 @@ Verified 2026-08-10:
 - AnythingLLM should use Ollama at the pod-local upstream service.
 - AnythingLLM should use `qwen3-coder:30b` for chat and agent settings.
 - AnythingLLM should use LanceDB locally on the disposable pod filesystem.
-- The `Nokia` workspace contained both CMG and CMM documents. For CMM questions, constrain the prompt to `cmm_cli_reference_guide.pdf` or split CMM into its own workspace to reduce cross-document retrieval.
+- The `Nokia` workspace contains both CMG and CMM documents. For CMM questions, constrain the prompt to `cmm_cli_reference_guide.pdf` and/or `CMM_Alarms.xlsx`, or split CMM into its own workspace to reduce cross-document retrieval.
+- Verified 2026-08-12: `CMM_Alarms.xlsx` is indexed as generated Markdown with the title `CMM_Alarms.xlsx`.
 
 ### System Prompt
 

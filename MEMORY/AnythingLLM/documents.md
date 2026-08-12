@@ -2,21 +2,15 @@
 
 Generated: 2026-08-07 20:33:01 UTC
 
-Verified update: 2026-08-10 runtime indexed five documents in the `Nokia` workspace:
+Verified update: 2026-08-12 runtime indexed five Git-backed references in the `Nokia` workspace:
 
 - `CMG_CLI_Reference_Guide.pdf`
 - `CMG_Configuration_Guide_part_1.pdf`
 - `CMG_Configuration_Guide_part_2.pdf`
 - `cmm_cli_reference_guide.pdf`
-- `sheet-Alarms.json`
+- `CMM_Alarms.xlsx` (converted to generated Markdown for embedding)
 
-The 2026-08-10 runtime had 1847 total vectors in AnythingLLM:
-
-- `CMG_CLI_Reference_Guide.pdf`: 780 vectors
-- `CMG_Configuration_Guide_part_1.pdf`: 137 vectors
-- `CMG_Configuration_Guide_part_2.pdf`: 120 vectors
-- `cmm_cli_reference_guide.pdf`: 722 vectors
-- `sheet-Alarms.json`: 88 vectors
+The 2026-08-12 runtime had 1850 total vectors in AnythingLLM after CMM alarm workbook indexing.
 
 Runtime vector databases and extracted JSON files are not committed to Git.
 
@@ -29,6 +23,12 @@ Do not use CMG_Configuration_Guide_part_1.pdf.
 Do not use CMG_Configuration_Guide_part_2.pdf.
 ```
 
+For CMM alarm questions, add:
+
+```text
+Use the indexed document titled CMM_Alarms.xlsx.
+```
+
 | Workspace | Title | Source | Words | Token Estimate | Published | Stored JSON |
 |---|---|---|---:|---:|---|---|
 | Nokia | CMG_CLI_Reference_Guide.pdf | file:///workspace/anything-llm/collector/hotdir/CMG_CLI_Reference_Guide.pdf | 1030941 | 794495 | 8/7/2026, 6:53:47 PM | custom-documents/CMG_CLI_Reference_Guide.pdf-1c018471-9197-4447-9228-6dea7465ea67.json |
@@ -39,3 +39,5 @@ Do not use CMG_Configuration_Guide_part_2.pdf.
 
 - `CMG_CLI_Reference_Guide.pdf` should be reloaded from `PDFS/Nokia/CMG_CLI_Reference_Guide.pdf`.
 - `CMG_Configuration_Guide.pdf` runtime upload maps to the split Git PDFs in `PDFS/Nokia/CMG_Configuration_Guide_part_1.pdf` and `PDFS/Nokia/CMG_Configuration_Guide_part_2.pdf`.
+- `cmm_cli_reference_guide.pdf` should be reloaded from `PDFS/Nokia/cmm_cli_reference_guide.pdf`.
+- `CMM_Alarms.xlsx` should be reloaded from `PDFS/Nokia/CMM_Alarms.xlsx`.

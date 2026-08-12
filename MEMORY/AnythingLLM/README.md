@@ -8,7 +8,7 @@ This folder stores durable Markdown state only: workspace settings, document man
 
 It intentionally does not store AnythingLLM SQLite databases, LanceDB/vector stores, uploaded runtime files, caches, logs, tokens, passwords, private keys, or full raw extracted PDF text.
 
-The source CMG documents remain in `PDFS/Nokia/`. On pod startup, AnythingLLM should be recreated from Git and should re-import/re-index those source files rather than relying on runtime state.
+The source CMG and CMM documents remain in `PDFS/Nokia/`. On pod startup, AnythingLLM should be recreated from Git and should re-import/re-index those source files, or restore the S3 RAG cache, rather than relying on disposable pod runtime state.
 
 In the verified 2026-08-10 runtime, AnythingLLM ran on internal port `3010`, was exposed through nginx on port `3001`, used Ollama with `qwen3-coder:30b`, and used local LanceDB runtime storage.
 
@@ -17,3 +17,9 @@ The RunPod base image may already define nginx port `3001` for another UI. Start
 RunPod network volumes are no longer part of the recreate path. Persistent AnythingLLM RAG/vector reuse should use the RunPod S3-compatible cache target `lp8wr68ped`.
 
 The S3 RAG cache should store only vector-facing snapshots and manifests, such as AnythingLLM LanceDB state, document JSON, vector cache, and sanitized manifest files. It must not store secrets, generated API keys, full auth databases, model files, logs, or OpenClaw runtime state.
+
+Verified 2026-08-12:
+
+- `PDFS/Nokia/cmm_cli_reference_guide.pdf` is Git-backed and indexed in AnythingLLM workspace `Nokia`.
+- `PDFS/Nokia/CMM_Alarms.xlsx` is Git-backed and indexed in AnythingLLM workspace `Nokia` after conversion to generated Markdown text.
+- The S3 RAG cache was refreshed after CMM PDF and XLSX indexing.

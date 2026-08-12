@@ -8,3 +8,5 @@
 - Test same-pod OpenClaw access through `http://localhost:11434`.
 - Verify `qwen3-coder:30b` pulls and runs acceptably on the selected GPU.
 - Review memory changes before every push to GitHub.
+- Consider splitting `PDFS/Nokia/` into separate `PDFS/CMM/` and `PDFS/CMG/` collections if retrieval continues to mix CMM and CMG answers.
+- Test an Open WebUI query against `cmm_cli_reference_guide.pdf` and `CMM_Alarms.xlsx` after each fresh pod/RAG-cache restore.

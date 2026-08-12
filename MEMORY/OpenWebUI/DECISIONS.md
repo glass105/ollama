@@ -24,3 +24,8 @@
 - RunPod S3/RAG cache ID `lp8wr68ped` is the selected object-store cache target. Store only RAG/vector snapshots and manifests there.
 - Do not store models, secrets, keys, tokens, logs, auth-bearing databases, OpenClaw runtime state, or general app caches in the S3 RAG cache.
 - S3 credentials must come from local env, RunPod secrets, or manual secure input and must never be committed.
+- As of 2026-08-12, Git-backed Nokia references include both CMG and CMM assets.
+- `PDFS/Nokia/cmm_cli_reference_guide.pdf` is the durable CMM CLI reference source.
+- `PDFS/Nokia/CMM_Alarms.xlsx` is the durable CMM alarm spreadsheet source and is converted to Markdown text by the RAG indexers before embedding.
+- Open WebUI and AnythingLLM auto-indexers should scan both `*.pdf` and `*.xlsx` under `PDFS/<collection>/`.
+- For precise CMM command answers, prompts should explicitly name `cmm_cli_reference_guide.pdf` to avoid mixing CMG and CMM retrieval results from the shared `Nokia` collection/workspace.
