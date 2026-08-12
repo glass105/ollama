@@ -255,17 +255,17 @@ configure_openclaw() {
         "apiKey": "ollama-local",
         "api": "ollama",
         "timeoutSeconds": 420,
-        "contextWindow": 32768,
+        "contextWindow": 65536,
         "maxTokens": 8192,
         "models": [
           {
             "id": "$OLLAMA_MODEL",
             "name": "$OLLAMA_MODEL",
             "input": ["text"],
-            "contextWindow": 32768,
+            "contextWindow": 65536,
             "maxTokens": 8192,
             "params": {
-              "num_ctx": 32768,
+              "num_ctx": 65536,
               "keep_alive": "15m"
             }
           }
