@@ -225,6 +225,20 @@ configure_openclaw() {
   fi
 
   log "Configuring OpenClaw for local Ollama model $OLLAMA_MODEL."
+  mkdir -p /root/.openclaw/workspace
+  touch /root/.openclaw/workspace/AGENTS.md
+  if ! grep -q "Disposable RunPod WebChat Reply Rule" /root/.openclaw/workspace/AGENTS.md; then
+    cat >> /root/.openclaw/workspace/AGENTS.md <<'EOF'
+
+## Disposable RunPod WebChat Reply Rule
+
+For direct WebChat messages from the owner/operator, always provide a visible text response.
+Do not answer `NO_REPLY` to normal operator questions, greetings, troubleshooting prompts, or project-memory checks.
+Use `NO_REPLY` only for heartbeat polls, background noise, duplicate transport events, or messages that explicitly require silence.
+If asked whether you can read a document or file, answer with what you can access and, when useful, inspect the workspace or Git-backed files before responding.
+EOF
+  fi
+
   local allowed_origins_json="[]"
   if [ -n "$OPENCLAW_ALLOWED_ORIGINS" ]; then
     allowed_origins_json="$(
