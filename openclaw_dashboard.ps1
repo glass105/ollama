@@ -9,12 +9,11 @@ if (-not (Test-Path -LiteralPath $DashboardUrlFile)) {
 }
 
 $content = Get-Content -LiteralPath $DashboardUrlFile -Raw
-$url = ($content -split "`r?`n" | Where-Object { $_ -match '^https://.*/?$' } | Select-Object -First 1)
+$url = ($content -split "`r?`n" | Where-Object { $_ -match '^https://.*\?url=wss://' } | Select-Object -First 1)
 
 if (-not $url) {
-  throw "OpenClaw Dashboard URL not found in $DashboardUrlFile"
+  throw "Tokenized Dashboard URL not found in $DashboardUrlFile"
 }
 
 Write-Host "Opening OpenClaw dashboard..."
-Write-Host "Use the password from: $PSScriptRoot\tmp\openclaw_gateway_password.local.txt"
 Start-Process $url

@@ -88,8 +88,8 @@ Pipeline:
    - ENABLE_OPENCLAW=true
    - OPENCLAW_GATEWAY_PORT=18789
    - OPENCLAW_GATEWAY_BIND=lan
-   - OPENCLAW_GATEWAY_AUTH=password
-   - OPENCLAW_GATEWAY_PASSWORD_FILE=/tmp/openclaw/gateway-password
+   - OPENCLAW_GATEWAY_AUTH=token
+   - OPENCLAW_GATEWAY_TOKEN=<generate a random token locally, do not commit it>
    - OPENCLAW_PUBLIC_URL=https://<POD_ID>-18789.proxy.runpod.net once the pod ID is known
    - OPENCLAW_DASHBOARD_URL_FILE=/tmp/openclaw/dashboard-url
    - ENABLE_OPENCLAW_RAG_PROXY=true
@@ -134,14 +134,14 @@ Pipeline:
       https://<POD_ID>-18789.proxy.runpod.net/
 14. For easier OpenClaw login, read and report:
     `/tmp/openclaw/dashboard-url`
-    This contains the dashboard URL, WebSocket URL, auth mode, and pod-local password file path. Do not commit it.
+    This contains the dashboard URL, WebSocket URL, gateway token, and tokenized dashboard URL. Do not commit it.
 15. If OpenClaw browser says "Browser origin not allowed," set:
     gateway.controlUi.allowedOrigins = [
       "https://<POD_ID>-18789.proxy.runpod.net"
     ]
     and restart the OpenClaw gateway.
 16. If OpenClaw says "Device pairing required," run:
-    openclaw devices approve <REQUEST_ID> --url ws://127.0.0.1:18789 --password "$(cat /tmp/openclaw/gateway-password)"
+    openclaw devices approve <REQUEST_ID> --url ws://127.0.0.1:18789 --token <TOKEN>
 17. Final output must include:
     - Pod ID
     - GPU used
@@ -151,11 +151,11 @@ Pipeline:
     - project-local SSH key path
     - AnythingLLM URL
     - OpenClaw Dashboard URL
-    - OpenClaw Dashboard URL from /tmp/openclaw/dashboard-url
+    - OpenClaw tokenized Dashboard URL from /tmp/openclaw/dashboard-url
     - where local secret files are saved
     - verification checklist
 
-Save generated OpenClaw passwords locally only, for example:
+Save generated OpenClaw tokens locally only, for example:
 
-C:\Users\joerc\OneDrive\Documents\ollama\tmp\openclaw_gateway_password.local.txt
+C:\Users\joerc\OneDrive\Documents\ollama\tmp\openclaw_public_gateway_token.local.txt
 ```

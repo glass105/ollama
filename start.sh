@@ -21,8 +21,7 @@ RAG_EMBEDDING_MODEL="${RAG_EMBEDDING_MODEL:-nomic-embed-text:latest}"
 ENABLE_OPENCLAW="${ENABLE_OPENCLAW:-true}"
 OPENCLAW_GATEWAY_PORT="${OPENCLAW_GATEWAY_PORT:-18789}"
 OPENCLAW_GATEWAY_BIND="${OPENCLAW_GATEWAY_BIND:-loopback}"
-OPENCLAW_GATEWAY_AUTH="${OPENCLAW_GATEWAY_AUTH:-password}"
-OPENCLAW_GATEWAY_PASSWORD_FILE="${OPENCLAW_GATEWAY_PASSWORD_FILE:-/tmp/openclaw/gateway-password}"
+OPENCLAW_GATEWAY_AUTH="${OPENCLAW_GATEWAY_AUTH:-token}"
 OPENCLAW_ALLOWED_ORIGINS="${OPENCLAW_ALLOWED_ORIGINS:-}"
 OPENCLAW_ALLOW_HOST_HEADER_ORIGIN_FALLBACK="${OPENCLAW_ALLOW_HOST_HEADER_ORIGIN_FALLBACK:-false}"
 OPENCLAW_PUBLIC_URL="${OPENCLAW_PUBLIC_URL:-}"
@@ -425,20 +424,6 @@ ${OPENCLAW_GATEWAY_TOKEN}
 Token file inside pod:
 /tmp/openclaw/gateway-token
 EOF
-  elif [ "$OPENCLAW_GATEWAY_AUTH" = "password" ]; then
-  cat > "$OPENCLAW_DASHBOARD_URL_FILE" <<EOF
-OpenClaw Dashboard:
-${public_url}/
-
-WebSocket URL:
-${ws_url}
-
-Gateway auth:
-password
-
-Password file inside pod:
-${OPENCLAW_GATEWAY_PASSWORD_FILE}
-EOF
   else
   cat > "$OPENCLAW_DASHBOARD_URL_FILE" <<EOF
 OpenClaw Dashboard:
@@ -501,28 +486,12 @@ start_openclaw_gateway() {
     chmod 600 /tmp/openclaw/gateway-token
   fi
 
-  if [ "$OPENCLAW_GATEWAY_AUTH" = "password" ]; then
-    if [ -n "${OPENCLAW_GATEWAY_PASSWORD:-}" ]; then
-      printf '%s\n' "$OPENCLAW_GATEWAY_PASSWORD" > "$OPENCLAW_GATEWAY_PASSWORD_FILE"
-    elif [ ! -s "$OPENCLAW_GATEWAY_PASSWORD_FILE" ]; then
-      if command -v openssl >/dev/null 2>&1; then
-        openssl rand -base64 24 > "$OPENCLAW_GATEWAY_PASSWORD_FILE"
-      else
-        printf '%s\n' "$(date +%s%N)-openclaw" > "$OPENCLAW_GATEWAY_PASSWORD_FILE"
-      fi
-    fi
-    chmod 600 "$OPENCLAW_GATEWAY_PASSWORD_FILE"
-  fi
   write_openclaw_dashboard_url
 
   log "Starting OpenClaw gateway on $OPENCLAW_GATEWAY_BIND:$OPENCLAW_GATEWAY_PORT with auth=$OPENCLAW_GATEWAY_AUTH."
   local openclaw_token_args=""
   if [ "$OPENCLAW_GATEWAY_AUTH" = "token" ] && [ -n "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
     openclaw_token_args="--token $OPENCLAW_GATEWAY_TOKEN"
-  fi
-  local openclaw_password_args=""
-  if [ "$OPENCLAW_GATEWAY_AUTH" = "password" ]; then
-    openclaw_password_args="--password-file $OPENCLAW_GATEWAY_PASSWORD_FILE"
   fi
 
   # shellcheck disable=SC2086
