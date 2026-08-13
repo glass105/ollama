@@ -31,3 +31,5 @@
 - OpenClaw should access AnythingLLM RAG indirectly with `/workspace/ollama-memory/anythingllm_query.sh <workspace> <question>`. AnythingLLM owns ingestion/retrieval; OpenClaw must not read LanceDB/vector files directly.
 - OpenClaw must not answer CMM, CMG, Nokia, PDF, XLSX, command, interface, alarm, guide, or reference questions from model memory. It must call the AnythingLLM helper first, use that output as source of truth, and report helper failures instead of inventing fallback commands.
 - OpenClaw should use the OpenClaw-only Ollama RAG proxy at `127.0.0.1:11437`; the proxy calls AnythingLLM for reference prompts and forwards augmented requests to real Ollama at `127.0.0.1:11434`.
+- OpenClaw public dashboard access should remain on token auth for the current OpenClaw `2026.7.1-2` RunPod setup. Password auth was tested behind the RunPod proxy and failed with `token_missing`; use the tokenized dashboard URL and device pairing instead.
+- Other-PC OpenClaw access requires the tokenized dashboard helper file and, if SSH access is needed, the project-local RunPod SSH key. Treat both as secrets and never commit them.

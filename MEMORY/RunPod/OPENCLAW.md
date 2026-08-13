@@ -52,3 +52,19 @@ That file may contain the public dashboard URL, WebSocket URL, gateway token, an
 ```text
 C:\Users\joerc\OneDrive\Documents\ollama\tmp\openclaw_public_gateway_token.local.txt
 ```
+
+Password auth was tested on 2026-08-13 with OpenClaw `2026.7.1-2` behind the RunPod proxy. Although the UI showed a password field and `gateway.auth.mode=password`, browser and CLI device connections still failed with `token_missing`. The working setup is token auth with the tokenized dashboard URL from `/tmp/openclaw/dashboard-url`.
+
+For another PC, move an access bundle containing the project-local SSH key, `tmp/openclaw_dashboard_url.local.txt`, and `openclaw_dashboard.ps1`. Extract it on the other PC and run:
+
+```powershell
+.\openclaw_dashboard.ps1
+```
+
+If OpenClaw shows `Device pairing required`, approve the pending request from the pod:
+
+```bash
+TOKEN="$(cat /tmp/openclaw/gateway-token)"
+openclaw devices list --url ws://127.0.0.1:18789 --token "$TOKEN"
+openclaw devices approve <REQUEST_ID> --url ws://127.0.0.1:18789 --token "$TOKEN"
+```
