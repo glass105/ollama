@@ -70,6 +70,22 @@ chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh restore_rag_c
 bash start.sh
 ```
 
+## Project-Local SSH Key
+
+Use the project-local SSH key for this setup:
+
+```text
+C:\Users\joerc\OneDrive\Documents\ollama\.ssh\ollama_runpod_ed25519
+```
+
+When creating a pod through the RunPod API, set the pod `PUBLIC_KEY` environment variable from:
+
+```text
+C:\Users\joerc\OneDrive\Documents\ollama\.ssh\ollama_runpod_ed25519.pub
+```
+
+The `.ssh/` folder is ignored by Git. Never commit SSH keys.
+
 The startup script:
 
 1. Loads `.env` if present.

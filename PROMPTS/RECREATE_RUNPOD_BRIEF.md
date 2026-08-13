@@ -9,6 +9,9 @@ https://github.com/glass105/ollama.git
 Use the RunPod API key from:
 C:\Users\joerc\OneDrive\Documents\ollama\.env
 
+Use the project-local SSH public key as the pod `PUBLIC_KEY`:
+C:\Users\joerc\OneDrive\Documents\ollama\.ssh\ollama_runpod_ed25519.pub
+
 Before creating the pod, ask me:
 "Do you want to include persistent RAG/vector storage for this pod creation?"
 
@@ -78,6 +81,7 @@ Final output:
 - volumeInGb
 - whether S3 RAG cache restore was used
 - SSH command
+- project-local SSH key path
 - AnythingLLM URL
 - OpenClaw Dashboard URL
 - OpenClaw tokenized Dashboard URL from `/tmp/openclaw/dashboard-url`

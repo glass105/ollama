@@ -12,6 +12,9 @@ https://github.com/glass105/ollama.git
 Use the RunPod API key already stored in:
 C:\Users\joerc\OneDrive\Documents\ollama\.env
 
+Use the project-local SSH public key as the pod PUBLIC_KEY:
+C:\Users\joerc\OneDrive\Documents\ollama\.ssh\ollama_runpod_ed25519.pub
+
 Hard rules:
 - Do not use RunPod network storage.
 - Do not use persistent RunPod volume storage.
@@ -69,6 +72,7 @@ Pipeline:
 7. Include env:
    - GITHUB_MEMORY_REPO=https://github.com/glass105/ollama.git
    - GITHUB_BRANCH=main
+   - PUBLIC_KEY=<contents of C:\Users\joerc\OneDrive\Documents\ollama\.ssh\ollama_runpod_ed25519.pub>
    - MEMORY_DIR=/workspace/ollama-memory
    - COMBINED_CONTEXT=/workspace/current_context.md
    - OLLAMA_MODEL=qwen3-coder:30b
@@ -144,6 +148,7 @@ Pipeline:
     - volumeInGb
     - whether S3 RAG cache was used
     - SSH command
+    - project-local SSH key path
     - AnythingLLM URL
     - OpenClaw Dashboard URL
     - OpenClaw tokenized Dashboard URL from /tmp/openclaw/dashboard-url

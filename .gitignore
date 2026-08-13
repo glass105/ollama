@@ -1,5 +1,6 @@
 .env
 .s3-keys
+.ssh/
 .local-secrets/
 *.log
 .cache/
