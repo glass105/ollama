@@ -54,6 +54,8 @@ Use qwen3-coder:30b as the default model.
 
 Set env for Ollama, AnythingLLM, OpenClaw, the OpenClaw-only Ollama RAG proxy on port 11437, Git-backed Markdown memory, PDF/XLSX auto-indexing, and optional S3 RAG-cache restore/upload. Generate OpenClaw tokens locally and never commit them.
 
+For easier OpenClaw login, set `OPENCLAW_PUBLIC_URL=https://<POD_ID>-18789.proxy.runpod.net` once the pod ID is known, keep token auth enabled, and save/print the pod helper file `/tmp/openclaw/dashboard-url` plus the local token file path.
+
 Startup command:
 cd /workspace && git clone https://github.com/glass105/ollama.git ollama-memory || true && cd /workspace/ollama-memory && git pull && chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh restore_rag_cache.sh save_rag_cache.sh auto_index_anythingllm_pdfs.py query_anythingllm.py anythingllm_query.sh && bash start.sh
 
@@ -78,6 +80,7 @@ Final output:
 - SSH command
 - AnythingLLM URL
 - OpenClaw Dashboard URL
+- OpenClaw tokenized Dashboard URL from `/tmp/openclaw/dashboard-url`
 - local secret file paths
 - verification checklist
 ```

@@ -198,6 +198,22 @@ MODEL=qwen3-coder:30b
 
 OpenClaw is configured to use `ollama/qwen3-coder:30b`, with a 66k context window and visible direct WebChat replies.
 
+## OpenClaw Dashboard Login
+
+Keep token auth enabled for the public RunPod proxy. Startup writes a pod-local helper file with the dashboard URL, WebSocket URL, gateway token, and tokenized dashboard URL:
+
+```bash
+cat /tmp/openclaw/dashboard-url
+```
+
+If the pod exposes OpenClaw through the normal RunPod proxy, set `OPENCLAW_PUBLIC_URL` to:
+
+```text
+https://<POD_ID>-18789.proxy.runpod.net
+```
+
+When `OPENCLAW_PUBLIC_URL` or a RunPod pod-id environment variable is available, startup also adds that origin to `gateway.controlUi.allowedOrigins` so the browser does not hit the origin allowlist error.
+
 ## OpenClaw And AnythingLLM RAG
 
 OpenClaw does not read the AnythingLLM LanceDB/vector database directly. It should call the local AnythingLLM API helper and let AnythingLLM handle retrieval:

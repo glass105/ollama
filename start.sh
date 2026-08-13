@@ -24,6 +24,8 @@ OPENCLAW_GATEWAY_BIND="${OPENCLAW_GATEWAY_BIND:-loopback}"
 OPENCLAW_GATEWAY_AUTH="${OPENCLAW_GATEWAY_AUTH:-token}"
 OPENCLAW_ALLOWED_ORIGINS="${OPENCLAW_ALLOWED_ORIGINS:-}"
 OPENCLAW_ALLOW_HOST_HEADER_ORIGIN_FALLBACK="${OPENCLAW_ALLOW_HOST_HEADER_ORIGIN_FALLBACK:-false}"
+OPENCLAW_PUBLIC_URL="${OPENCLAW_PUBLIC_URL:-}"
+OPENCLAW_DASHBOARD_URL_FILE="${OPENCLAW_DASHBOARD_URL_FILE:-/tmp/openclaw/dashboard-url}"
 ENABLE_OPENCLAW_RAG_PROXY="${ENABLE_OPENCLAW_RAG_PROXY:-true}"
 OPENCLAW_RAG_PROXY_PORT="${OPENCLAW_RAG_PROXY_PORT:-11437}"
 ENABLE_ANYTHINGLLM="${ENABLE_ANYTHINGLLM:-true}"
@@ -307,12 +309,20 @@ if path.exists():
     path.write_text(text)
 PY
 
+  local openclaw_public_url
+  openclaw_public_url="$(infer_openclaw_public_url)"
   local allowed_origins_json="[]"
   if [ -n "$OPENCLAW_ALLOWED_ORIGINS" ]; then
     allowed_origins_json="$(
       printf '%s' "$OPENCLAW_ALLOWED_ORIGINS" | "$(
         command -v python3 >/dev/null 2>&1 && printf python3 || printf python
       )" -c 'import json,sys; print(json.dumps([x.strip() for x in sys.stdin.read().split(",") if x.strip()]))'
+    )"
+  elif [ -n "$openclaw_public_url" ]; then
+    allowed_origins_json="$(
+      printf '%s' "$openclaw_public_url" | "$(
+        command -v python3 >/dev/null 2>&1 && printf python3 || printf python
+      )" -c 'import json,sys; print(json.dumps([sys.stdin.read().strip().rstrip("/")]))'
     )"
   fi
 
@@ -374,6 +384,51 @@ EOF
   openclaw models set "ollama/$OLLAMA_MODEL" >> /tmp/openclaw-config.log 2>&1 || true
 }
 
+infer_openclaw_public_url() {
+  if [ -n "${OPENCLAW_PUBLIC_URL:-}" ]; then
+    printf '%s\n' "${OPENCLAW_PUBLIC_URL%/}"
+    return 0
+  fi
+
+  local pod_id="${RUNPOD_POD_ID:-${RUNPOD_PODID:-${POD_ID:-}}}"
+  if [ -n "$pod_id" ]; then
+    printf 'https://%s-%s.proxy.runpod.net\n' "$pod_id" "$OPENCLAW_GATEWAY_PORT"
+  fi
+}
+
+write_openclaw_dashboard_url() {
+  if [ "$OPENCLAW_GATEWAY_AUTH" != "token" ] || [ -z "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
+    return 0
+  fi
+
+  local public_url
+  public_url="$(infer_openclaw_public_url)"
+  if [ -z "$public_url" ]; then
+    return 0
+  fi
+
+  local ws_url="${public_url#https://}"
+  ws_url="wss://$ws_url"
+  mkdir -p "$(dirname "$OPENCLAW_DASHBOARD_URL_FILE")"
+  cat > "$OPENCLAW_DASHBOARD_URL_FILE" <<EOF
+OpenClaw Dashboard:
+${public_url}/
+
+Tokenized Dashboard URL:
+${public_url}/?url=${ws_url}&token=${OPENCLAW_GATEWAY_TOKEN}
+
+WebSocket URL:
+${ws_url}
+
+Gateway Token:
+${OPENCLAW_GATEWAY_TOKEN}
+
+Token file inside pod:
+/tmp/openclaw/gateway-token
+EOF
+  chmod 600 "$OPENCLAW_DASHBOARD_URL_FILE"
+}
+
 start_openclaw_rag_proxy() {
   case "$(printf '%s' "$ENABLE_OPENCLAW_RAG_PROXY" | tr '[:upper:]' '[:lower:]')" in
     true|1|yes|y) ;;
@@ -420,6 +475,7 @@ start_openclaw_gateway() {
     printf '%s\n' "$OPENCLAW_GATEWAY_TOKEN" > /tmp/openclaw/gateway-token
     chmod 600 /tmp/openclaw/gateway-token
   fi
+  write_openclaw_dashboard_url
 
   log "Starting OpenClaw gateway on $OPENCLAW_GATEWAY_BIND:$OPENCLAW_GATEWAY_PORT with auth=$OPENCLAW_GATEWAY_AUTH."
   local openclaw_token_args=""
@@ -846,6 +902,9 @@ Local PC OpenClaw through SSH tunnel:
 Same-pod OpenClaw:
   OLLAMA_BASE_URL=http://localhost:11434
   MODEL=${OLLAMA_MODEL}
+
+OpenClaw public dashboard helper:
+  ${OPENCLAW_DASHBOARD_URL_FILE}
 
 Combined context:
   ${COMBINED_CONTEXT}

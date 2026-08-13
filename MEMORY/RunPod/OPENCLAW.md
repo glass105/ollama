@@ -38,3 +38,17 @@ AnythingLLM remains the owner of ingestion, retrieval, workspaces, and source me
 For CMM, CMG, Nokia, PDF, XLSX, command, interface, alarm, guide, or reference questions, OpenClaw must run the helper before answering. If it cannot run the helper, it should say the helper failed instead of inventing commands from model memory. OpenClaw should not mention Open WebUI because Open WebUI is no longer part of the active pipeline.
 
 Startup also runs an OpenClaw-only Ollama RAG proxy on `127.0.0.1:11437`. OpenClaw should use that as its Ollama provider base URL. The proxy injects AnythingLLM RAG output into CMM/CMG/Nokia/reference prompts before forwarding to real Ollama on `127.0.0.1:11434`.
+
+## Public Dashboard Helper
+
+Keep OpenClaw gateway token auth enabled when using the RunPod proxy. For easier login, startup should write:
+
+```text
+/tmp/openclaw/dashboard-url
+```
+
+That file may contain the public dashboard URL, WebSocket URL, gateway token, and tokenized dashboard URL for the current disposable pod. It is runtime-only state and must not be committed to Git. The local copy of the gateway token belongs under:
+
+```text
+C:\Users\joerc\OneDrive\Documents\ollama\tmp\openclaw_public_gateway_token.local.txt
+```

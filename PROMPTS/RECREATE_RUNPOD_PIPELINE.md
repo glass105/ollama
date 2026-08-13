@@ -86,6 +86,8 @@ Pipeline:
    - OPENCLAW_GATEWAY_BIND=lan
    - OPENCLAW_GATEWAY_AUTH=token
    - OPENCLAW_GATEWAY_TOKEN=<generate a random token locally, do not commit it>
+   - OPENCLAW_PUBLIC_URL=https://<POD_ID>-18789.proxy.runpod.net once the pod ID is known
+   - OPENCLAW_DASHBOARD_URL_FILE=/tmp/openclaw/dashboard-url
    - ENABLE_OPENCLAW_RAG_PROXY=true
    - OPENCLAW_RAG_PROXY_PORT=11437
 8. If S3 RAG cache is enabled, include:
@@ -126,14 +128,17 @@ Pipeline:
       https://<POD_ID>-3001.proxy.runpod.net/
     - OpenClaw:
       https://<POD_ID>-18789.proxy.runpod.net/
-14. If OpenClaw browser says "Browser origin not allowed," set:
+14. For easier OpenClaw login, read and report:
+    `/tmp/openclaw/dashboard-url`
+    This contains the dashboard URL, WebSocket URL, gateway token, and tokenized dashboard URL. Do not commit it.
+15. If OpenClaw browser says "Browser origin not allowed," set:
     gateway.controlUi.allowedOrigins = [
       "https://<POD_ID>-18789.proxy.runpod.net"
     ]
     and restart the OpenClaw gateway.
-15. If OpenClaw says "Device pairing required," run:
+16. If OpenClaw says "Device pairing required," run:
     openclaw devices approve <REQUEST_ID> --url ws://127.0.0.1:18789 --token <TOKEN>
-16. Final output must include:
+17. Final output must include:
     - Pod ID
     - GPU used
     - volumeInGb
@@ -141,6 +146,7 @@ Pipeline:
     - SSH command
     - AnythingLLM URL
     - OpenClaw Dashboard URL
+    - OpenClaw tokenized Dashboard URL from /tmp/openclaw/dashboard-url
     - where local secret files are saved
     - verification checklist
 
