@@ -41,14 +41,14 @@ Startup also runs an OpenClaw-only Ollama RAG proxy on `127.0.0.1:11437`. OpenCl
 
 ## Public Dashboard Helper
 
-Keep OpenClaw gateway token auth enabled when using the RunPod proxy. For easier login, startup should write:
+Use OpenClaw gateway password auth when using the RunPod proxy. For easier login, startup should write:
 
 ```text
 /tmp/openclaw/dashboard-url
 ```
 
-That file may contain the public dashboard URL, WebSocket URL, gateway token, and tokenized dashboard URL for the current disposable pod. It is runtime-only state and must not be committed to Git. The local copy of the gateway token belongs under:
+That file may contain the public dashboard URL, WebSocket URL, auth mode, and password file path for the current disposable pod. It is runtime-only state and must not be committed to Git. The local copy of the gateway password belongs under:
 
 ```text
-C:\Users\joerc\OneDrive\Documents\ollama\tmp\openclaw_public_gateway_token.local.txt
+C:\Users\joerc\OneDrive\Documents\ollama\tmp\openclaw_gateway_password.local.txt
 ```

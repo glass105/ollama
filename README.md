@@ -216,7 +216,7 @@ OpenClaw is configured to use `ollama/qwen3-coder:30b`, with a 66k context windo
 
 ## OpenClaw Dashboard Login
 
-Keep token auth enabled for the public RunPod proxy. Startup writes a pod-local helper file with the dashboard URL, WebSocket URL, gateway token, and tokenized dashboard URL:
+Use password auth for the public RunPod proxy. Startup writes a pod-local helper file with the dashboard URL, WebSocket URL, auth mode, and pod-local password file path:
 
 ```bash
 cat /tmp/openclaw/dashboard-url
