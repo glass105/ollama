@@ -51,16 +51,16 @@ Create pod:
 - containerDiskInGb: 120
 - volumeInGb: 0
 - no networkVolumeId
-- ports: 3001/http, 18789/http, 22/tcp
+- ports: 3001/http, 18789/http, 19124/http, 22/tcp
 
 Use qwen3-coder:30b as the default model.
 
-Set env for Ollama, AnythingLLM, OpenClaw, the OpenClaw-only Ollama RAG proxy on port 11437, Git-backed Markdown memory, PDF/XLSX auto-indexing, and optional S3 RAG-cache restore/upload. Use OpenClaw token auth, generate the token locally, save it only in local ignored files and `/tmp/openclaw/gateway-token`, and never commit it.
+Set env for Ollama, AnythingLLM, OpenClaw, the OpenClaw-only Ollama RAG proxy on port 11437, the opt-in equipment HTTPS bridge (`ENABLE_EQUIPMENT_HTTPS_BRIDGE=true`, port 19124), Git-backed Markdown memory, PDF/XLSX auto-indexing, and optional S3 RAG-cache restore/upload. Use generated token auth for both OpenClaw and the equipment bridge; save tokens only in local ignored files and pod `/tmp` paths, and never commit them.
 
 For easier OpenClaw login, set `OPENCLAW_PUBLIC_URL=https://<POD_ID>-18789.proxy.runpod.net` once the pod ID is known, set `OPENCLAW_GATEWAY_AUTH=token`, and save/print the pod helper file `/tmp/openclaw/dashboard-url` plus the local token file path.
 
 Startup command:
-cd /workspace && git clone https://github.com/glass105/ollama.git ollama-memory || true && cd /workspace/ollama-memory && git pull && chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh restore_rag_cache.sh save_rag_cache.sh auto_index_anythingllm_pdfs.py query_anythingllm.py anythingllm_query.sh && bash start.sh
+cd /workspace && git clone https://github.com/glass105/ollama.git ollama-memory || true && cd /workspace/ollama-memory && git pull && chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh restore_rag_cache.sh save_rag_cache.sh auto_index_anythingllm_pdfs.py query_anythingllm.py anythingllm_query.sh equipment_https_bridge.py equipment_bridge_client.py stop_equipment_https_bridge.sh && bash start.sh
 
 Preserve RunPod SSH by launching /start.sh in the background before repo startup if needed.
 
@@ -72,6 +72,7 @@ Verify:
 - /workspace/current_context.md exists
 - AnythingLLM uses Ollama/qwen3-coder:30b
 - OpenClaw uses the RAG proxy at `127.0.0.1:11437`
+- `https://<POD_ID>-19124.proxy.runpod.net/health` returns the equipment bridge health response
 - PDF/RAG state is restored from S3 cache or rebuilt/incrementally indexed from PDFs/XLSX files
 - `bash /workspace/ollama-memory/anythingllm_query.sh Nokia "What can you answer from the CMM guide?"` returns an AnythingLLM RAG answer
 

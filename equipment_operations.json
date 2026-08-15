@@ -1,0 +1,10 @@
+{
+  "show_version": {
+    "command": "show version",
+    "timeoutSeconds": 60
+  },
+  "show_alarms": {
+    "command": "show alarms",
+    "timeoutSeconds": 60
+  }
+}

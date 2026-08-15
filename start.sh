@@ -46,6 +46,12 @@ RAG_S3_ENDPOINT="${RAG_S3_ENDPOINT:-https://s3api-us-nc-1.runpod.io}"
 RAG_S3_BUCKET="${RAG_S3_BUCKET:-lp8wr68ped}"
 RAG_S3_PREFIX="${RAG_S3_PREFIX:-ollama-rag-cache}"
 RAG_S3_ARCHIVE_NAME="${RAG_S3_ARCHIVE_NAME:-rag-vector-state.tar.gz}"
+EQUIPMENT_FILE="${EQUIPMENT_FILE:-/tmp/equipment.csv}"
+EQUIPMENT_SSH_CONFIG="${EQUIPMENT_SSH_CONFIG:-/tmp/equipment_ssh_config}"
+ENABLE_EQUIPMENT_HTTPS_BRIDGE="${ENABLE_EQUIPMENT_HTTPS_BRIDGE:-false}"
+EQUIPMENT_BRIDGE_HOST="${EQUIPMENT_BRIDGE_HOST:-0.0.0.0}"
+EQUIPMENT_BRIDGE_PORT="${EQUIPMENT_BRIDGE_PORT:-19124}"
+EQUIPMENT_BRIDGE_DIR="${EQUIPMENT_BRIDGE_DIR:-/tmp/equipment-bridge}"
 
 log() {
   echo "[start] $*"
@@ -500,7 +506,6 @@ start_openclaw_gateway() {
     --port "$OPENCLAW_GATEWAY_PORT" \
     --auth "$OPENCLAW_GATEWAY_AUTH" \
     $openclaw_token_args \
-    $openclaw_password_args \
     --allow-unconfigured \
     run \
     > /tmp/openclaw/gateway.log 2>&1 &
@@ -892,6 +897,77 @@ start_autosync() {
   nohup "$MEMORY_DIR/autosync_memory.sh" > /tmp/autosync-memory.log 2>&1 &
 }
 
+prepare_equipment_access() {
+  if [ ! -f "$EQUIPMENT_FILE" ]; then
+    log "Equipment inventory is not present at $EQUIPMENT_FILE; skipping equipment SSH preparation."
+    return 0
+  fi
+  if [ ! -f "$MEMORY_DIR/equipment_access.py" ]; then
+    log "Equipment access helper is missing; skipping equipment SSH preparation."
+    return 0
+  fi
+
+  log "Preparing pod-local equipment SSH aliases from $EQUIPMENT_FILE."
+  EQUIPMENT_FILE="$EQUIPMENT_FILE" \
+    EQUIPMENT_SSH_CONFIG="$EQUIPMENT_SSH_CONFIG" \
+    python3 "$MEMORY_DIR/equipment_access.py" prepare || {
+      log "Equipment SSH preparation failed."
+      return 0
+    }
+}
+
+start_equipment_https_bridge() {
+  case "$(printf '%s' "$ENABLE_EQUIPMENT_HTTPS_BRIDGE" | tr '[:upper:]' '[:lower:]')" in
+    true|1|yes|y|on) ;;
+    *)
+      log "Equipment HTTPS bridge is disabled."
+      return 0
+      ;;
+  esac
+
+  if [ ! -f "$MEMORY_DIR/equipment_https_bridge.py" ]; then
+    log "Equipment HTTPS bridge helper is missing; skipping."
+    return 0
+  fi
+
+  mkdir -p "$EQUIPMENT_BRIDGE_DIR"
+  chmod 700 "$EQUIPMENT_BRIDGE_DIR"
+
+  local client_token_file="$EQUIPMENT_BRIDGE_DIR/client-token"
+  local worker_token_file="$EQUIPMENT_BRIDGE_DIR/worker-token"
+  if [ -n "${EQUIPMENT_BRIDGE_CLIENT_TOKEN:-}" ]; then
+    printf '%s\n' "$EQUIPMENT_BRIDGE_CLIENT_TOKEN" > "$client_token_file"
+  elif [ ! -s "$client_token_file" ]; then
+    openssl rand -hex 32 > "$client_token_file"
+  fi
+  if [ -n "${EQUIPMENT_BRIDGE_WORKER_TOKEN:-}" ]; then
+    printf '%s\n' "$EQUIPMENT_BRIDGE_WORKER_TOKEN" > "$worker_token_file"
+  elif [ ! -s "$worker_token_file" ]; then
+    openssl rand -hex 32 > "$worker_token_file"
+  fi
+  chmod 600 "$client_token_file" "$worker_token_file"
+
+  if [ -s "$EQUIPMENT_BRIDGE_DIR/server.pid" ]; then
+    local old_pid
+    old_pid="$(cat "$EQUIPMENT_BRIDGE_DIR/server.pid")"
+    case "$old_pid" in
+      ''|*[!0-9]*) ;;
+      *) kill "$old_pid" 2>/dev/null || true ;;
+    esac
+  fi
+
+  log "Starting equipment HTTPS bridge on $EQUIPMENT_BRIDGE_HOST:$EQUIPMENT_BRIDGE_PORT."
+  nohup python3 "$MEMORY_DIR/equipment_https_bridge.py" \
+    --host "$EQUIPMENT_BRIDGE_HOST" \
+    --port "$EQUIPMENT_BRIDGE_PORT" \
+    --state-file "$EQUIPMENT_BRIDGE_DIR/jobs.json" \
+    --client-token-file "$client_token_file" \
+    --worker-token-file "$worker_token_file" \
+    > "$EQUIPMENT_BRIDGE_DIR/server.log" 2>&1 &
+  echo $! > "$EQUIPMENT_BRIDGE_DIR/server.pid"
+  chmod 600 "$EQUIPMENT_BRIDGE_DIR/server.pid" "$EQUIPMENT_BRIDGE_DIR/server.log"
+}
+
 print_details() {
   cat <<EOF
 
@@ -927,6 +1003,11 @@ Logs:
   ${ANYTHINGLLM_DEPLOY_DIR}/logs/server.log
   ${ANYTHINGLLM_DEPLOY_DIR}/logs/collector.log
   /tmp/anythingllm-pdf-auto-index.log
+  ${EQUIPMENT_BRIDGE_DIR}/server.log
+
+Optional equipment HTTPS bridge:
+  Enabled: ${ENABLE_EQUIPMENT_HTTPS_BRIDGE}
+  Pod-local URL: http://127.0.0.1:${EQUIPMENT_BRIDGE_PORT}
 
 Security:
   Do not expose Ollama publicly without protection. Prefer SSH tunnel, VPN,
@@ -950,6 +1031,9 @@ ensure_repo
 chmod +x "$MEMORY_DIR/start.sh" "$MEMORY_DIR/load_memory.sh" "$MEMORY_DIR/sync_memory.sh" "$MEMORY_DIR/autosync_memory.sh"
 chmod +x "$MEMORY_DIR/auto_index_anythingllm_pdfs.py" 2>/dev/null || true
 chmod +x "$MEMORY_DIR/query_anythingllm.py" "$MEMORY_DIR/anythingllm_query.sh" 2>/dev/null || true
+chmod +x "$MEMORY_DIR/equipment_access.py" 2>/dev/null || true
+chmod +x "$MEMORY_DIR/equipment_https_bridge.py" "$MEMORY_DIR/equipment_bridge_client.py" 2>/dev/null || true
+chmod +x "$MEMORY_DIR/stop_equipment_https_bridge.sh" 2>/dev/null || true
 chmod +x "$MEMORY_DIR/openclaw_ollama_rag_proxy.py" 2>/dev/null || true
 chmod +x "$MEMORY_DIR/restore_rag_cache.sh" 2>/dev/null || true
 chmod +x "$MEMORY_DIR/save_rag_cache.sh" 2>/dev/null || true
@@ -961,6 +1045,8 @@ wait_for_ollama
 pull_model
 pull_embedding_model || true
 start_autosync
+prepare_equipment_access
+start_equipment_https_bridge
 ensure_anythingllm > /tmp/anythingllm-setup.log 2>&1 || log "AnythingLLM setup failed. See /tmp/anythingllm-setup.log and ${ANYTHINGLLM_DEPLOY_DIR}/logs/server.log if it started."
 restore_rag_cache
 wait_for_anythingllm || true

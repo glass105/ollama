@@ -86,6 +86,49 @@ C:\Users\joerc\OneDrive\Documents\ollama\.ssh\ollama_runpod_ed25519.pub
 
 The `.ssh/` folder is ignored by Git. Never commit SSH keys.
 
+## Equipment Reverse SSH Tunnels
+
+Private equipment is defined locally in the ignored file:
+
+```text
+secrets/equipment.csv
+```
+
+After the pod reaches `RUNNING`, query RunPod for its final runtime port mappings, publish a sanitized connection manifest, and upload the equipment inventory:
+
+```powershell
+.\publish_runpod_connections.ps1
+```
+
+This reads `RUNPOD_API_KEY` and `RUNPOD_POD_NAME` from the ignored `.env`, refreshes `secrets/last_runpod_runtime.json`, writes `secrets/pod_connections.json`, uploads the inventory to `/tmp/equipment.csv`, and runs `equipment_access.py prepare` in the pod. The saved JSON files contain connection coordinates but no API keys, passwords, tokens, or private-key contents. Use `-UseSavedRuntime` only for deliberate offline testing; normal publishing always queries the live API so stale pod endpoints are not reused.
+
+Start all reverse forwards from the Windows PC with:
+
+```powershell
+.\start_equipment_tunnels.ps1
+```
+
+The Windows script reads only `secrets/equipment.csv` and `secrets/pod_connections.json`. Each `-R` listener binds to pod loopback. For example:
+
+```text
+RunPod 127.0.0.1:2201 -> Windows -> 10.17.5.144:22
+```
+
+On the pod, inspect aliases and tunnel status with:
+
+```bash
+python3 /workspace/ollama-memory/equipment_access.py list
+python3 /workspace/ollama-memory/equipment_access.py check
+```
+
+Run an equipment SSH command with:
+
+```bash
+python3 /workspace/ollama-memory/equipment_access.py run bocsmf01 "show version"
+```
+
+The reverse tunnels provide transport only. Equipment authentication and verified host keys must be injected separately. For unattended use, configure `EQUIPMENT_IDENTITY_FILE`, `EQUIPMENT_KNOWN_HOSTS_FILE`, and `EQUIPMENT_STRICT_HOST_KEY_CHECKING=yes`; never commit those credential files.
+
 The startup script:
 
 1. Loads `.env` if present.
@@ -285,6 +328,57 @@ IMAGES/
 ```
 
 Do not store private documents, credential-bearing screenshots, large datasets, vector stores, or model files in these folders.
+
+## HTTPS Equipment Worker (No Direct RunPod TCP)
+
+When Windows cannot reach the RunPod IP, use the pull-based HTTPS bridge instead of reverse SSH forwarding. Add `19124/http` to the pod's exposed ports and set:
+
+```text
+ENABLE_EQUIPMENT_HTTPS_BRIDGE=true
+EQUIPMENT_BRIDGE_PORT=19124
+```
+
+Startup creates separate client and worker tokens under `/tmp/equipment-bridge` and starts the bridge on `0.0.0.0:19124`. RunPod terminates public HTTPS at:
+
+```text
+https://<POD_ID>-19124.proxy.runpod.net
+```
+
+After the pod is ready, run `publish_runpod_connections.ps1`. When `19124/http` is present, it writes the ignored `secrets/equipment_worker.env` with the proxy URL and worker-only token. Move these files to the real Windows PC:
+
+```text
+equipment_worker.ps1
+equipment_operations.json
+secrets/equipment.csv
+secrets/equipment_worker.env
+```
+
+Start the worker manually:
+
+```powershell
+.\equipment_worker.ps1
+```
+
+It polls outbound over HTTPS, validates device and operation against local allowlists, runs built-in `ssh.exe`, and posts bounded output back over HTTPS. Equipment authentication stays on Windows.
+
+From the pod/OpenClaw side:
+
+```bash
+python3 /workspace/ollama-memory/equipment_bridge_client.py submit bocsmf01 show_version
+python3 /workspace/ollama-memory/equipment_bridge_client.py wait <JOB_ID>
+```
+
+Review `equipment_operations.json` against the real equipment CLI before enabling operations. Its example commands are read-only candidates, not proof that every platform supports that syntax.
+
+### HTTPS bridge rollback
+
+1. Stop the Windows worker with `Ctrl+C`.
+2. Set `ENABLE_EQUIPMENT_HTTPS_BRIDGE=false` for future pods.
+3. Stop it immediately on a running pod with `bash /workspace/ollama-memory/stop_equipment_https_bridge.sh`.
+4. Remove `19124/http` from future pod configurations if no longer required.
+5. Delete the ignored `secrets/equipment_worker.env` on PCs that should no longer poll.
+
+The reverse-SSH implementation remains separate. Disabling this bridge does not affect Ollama, AnythingLLM, OpenClaw, or the equipment inventory.
 
 ## Troubleshooting
 

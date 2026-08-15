@@ -47,7 +47,10 @@ Pipeline:
    - auto_index_anythingllm_pdfs.py
    - query_anythingllm.py
    - anythingllm_query.sh
-   - openclaw_ollama_rag_proxy.py
+    - openclaw_ollama_rag_proxy.py
+    - equipment_https_bridge.py
+    - equipment_bridge_client.py
+    - stop_equipment_https_bridge.sh
 4. Ensure memory loads locally with load_memory.sh.
 5. Ask whether to enable the S3 RAG cache. If yes, use cache ID `lp8wr68ped`; if no, rebuild RAG from Git-backed PDFs/XLSX files.
 6. Create a RunPod pod using REST API:
@@ -67,8 +70,9 @@ Pipeline:
    - no networkVolumeId
    - ports:
      - 3001/http
-     - 18789/http
-     - 22/tcp
+      - 18789/http
+      - 19124/http
+      - 22/tcp
 7. Include env:
    - GITHUB_MEMORY_REPO=https://github.com/glass105/ollama.git
    - GITHUB_BRANCH=main
@@ -93,7 +97,9 @@ Pipeline:
    - OPENCLAW_PUBLIC_URL=https://<POD_ID>-18789.proxy.runpod.net once the pod ID is known
    - OPENCLAW_DASHBOARD_URL_FILE=/tmp/openclaw/dashboard-url
    - ENABLE_OPENCLAW_RAG_PROXY=true
-   - OPENCLAW_RAG_PROXY_PORT=11437
+    - OPENCLAW_RAG_PROXY_PORT=11437
+    - ENABLE_EQUIPMENT_HTTPS_BRIDGE=true
+    - EQUIPMENT_BRIDGE_PORT=19124
 8. If S3 RAG cache is enabled, include:
    - ENABLE_RAG_S3_CACHE=true
    - RAG_S3_CACHE_ID=lp8wr68ped
