@@ -18,7 +18,7 @@ RunPod network volumes are no longer part of the recreate path. Persistent Anyth
 
 The S3 RAG cache should store only vector-facing snapshots and manifests, such as AnythingLLM LanceDB state, document JSON, vector cache, and sanitized manifest files. The sanitized manifest may include safe workspace linkage rows so restored LanceDB/vector data can be reattached to workspaces such as `Nokia`. It must not store secrets, generated API keys, full auth databases, model files, logs, or OpenClaw runtime state.
 
-As of 2026-08-19, RAG cache saves prune historical S3 snapshot tar files to the newest three. The `latest/` archive remains an overwritten restore pointer.
+As of 2026-08-19, RAG cache saves prune S3 storage to three tar files total: the overwritten `latest/` restore pointer plus the newest two historical snapshot tar files.
 
 OpenClaw can query AnythingLLM RAG indirectly through the pod-local helper:
 

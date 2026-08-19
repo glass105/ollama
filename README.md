@@ -214,7 +214,7 @@ RAG_S3_SECRET_ACCESS_KEY=<secret>
 
 The cache scripts store only AnythingLLM vector/RAG-facing artifacts and sanitized manifests. This includes LanceDB, AnythingLLM document/vector cache files, and safe workspace linkage rows needed to reconnect workspaces such as `Nokia` to their restored vectors. They do not intentionally store model files, OpenClaw runtime state, logs, tokens, generated API keys, full auth databases, or general caches.
 
-`save_rag_cache.sh` overwrites the `latest/` archive and keeps only the newest three historical snapshot tar files under `snapshots/` by default. Override with `RAG_S3_RETENTION_COUNT` only if you intentionally want a different snapshot history.
+`save_rag_cache.sh` overwrites the `latest/` archive and keeps only the newest two historical snapshot tar files under `snapshots/` by default. That leaves three tar files total: the current `latest/` restore pointer plus two rollback snapshots. Override with `RAG_S3_RETENTION_COUNT` only if you intentionally want a different snapshot history.
 
 ## Ollama API
 

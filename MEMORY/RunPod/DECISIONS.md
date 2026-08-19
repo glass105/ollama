@@ -22,7 +22,7 @@
 - Persistent RAG/vector reuse should use the RunPod S3-compatible cache path instead of RunPod network volumes.
 - RunPod S3/RAG cache ID `lp8wr68ped` is the selected object-store cache target. Store only RAG/vector snapshots and manifests there.
 - S3 RAG snapshots should include AnythingLLM LanceDB, document/vector cache files, and sanitized workspace linkage manifests so restored workspaces can reconnect to their vector tags.
-- S3 RAG cache saves should keep only the newest three historical snapshot tar files under `snapshots/`; `latest/` is overwritten on each save.
+- S3 RAG cache saves should keep three tar files total: the overwritten `latest/` restore pointer plus the newest two historical snapshot tar files under `snapshots/`.
 - Do not store models, secrets, keys, tokens, logs, auth-bearing databases, OpenClaw runtime state, or general app caches in the S3 RAG cache.
 - S3 credentials must come from local env, RunPod secrets, or manual secure input and must never be committed.
 - As of 2026-08-12, Git-backed Nokia references include both CMG and CMM assets.

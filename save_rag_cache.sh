@@ -16,7 +16,7 @@ RAG_S3_ENDPOINT="${RAG_S3_ENDPOINT:-https://s3api-us-nc-1.runpod.io}"
 RAG_S3_BUCKET="${RAG_S3_BUCKET:-lp8wr68ped}"
 RAG_S3_PREFIX="${RAG_S3_PREFIX:-ollama-rag-cache}"
 RAG_S3_ARCHIVE_NAME="${RAG_S3_ARCHIVE_NAME:-rag-vector-state.tar.gz}"
-RAG_S3_RETENTION_COUNT="${RAG_S3_RETENTION_COUNT:-3}"
+RAG_S3_RETENTION_COUNT="${RAG_S3_RETENTION_COUNT:-2}"
 ANYTHINGLLM_STORAGE_DIR="${ANYTHINGLLM_STORAGE_DIR:-/workspace/anything-llm/server/storage}"
 
 log() {
