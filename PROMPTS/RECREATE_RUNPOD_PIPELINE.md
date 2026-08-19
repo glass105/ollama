@@ -107,6 +107,7 @@ Pipeline:
    - RAG_S3_ENDPOINT=https://s3api-us-nc-1.runpod.io
    - RAG_S3_BUCKET=lp8wr68ped
    - RAG_S3_PREFIX=ollama-rag-cache
+   - RAG_S3_RETENTION_COUNT=3
    - RAG_S3_ACCESS_KEY_ID=<secret, do not commit>
    - RAG_S3_SECRET_ACCESS_KEY=<secret, do not commit>
 9. Use this pod startup command:

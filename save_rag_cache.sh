@@ -16,6 +16,7 @@ RAG_S3_ENDPOINT="${RAG_S3_ENDPOINT:-https://s3api-us-nc-1.runpod.io}"
 RAG_S3_BUCKET="${RAG_S3_BUCKET:-lp8wr68ped}"
 RAG_S3_PREFIX="${RAG_S3_PREFIX:-ollama-rag-cache}"
 RAG_S3_ARCHIVE_NAME="${RAG_S3_ARCHIVE_NAME:-rag-vector-state.tar.gz}"
+RAG_S3_RETENTION_COUNT="${RAG_S3_RETENTION_COUNT:-3}"
 ANYTHINGLLM_STORAGE_DIR="${ANYTHINGLLM_STORAGE_DIR:-/workspace/anything-llm/server/storage}"
 
 log() {
@@ -100,6 +101,41 @@ dump_tables(
 PY
 }
 
+prune_old_snapshots() {
+  local snapshots_uri="s3://${RAG_S3_BUCKET}/${RAG_S3_PREFIX}/snapshots/"
+
+  if ! [[ "$RAG_S3_RETENTION_COUNT" =~ ^[0-9]+$ ]]; then
+    log "Invalid RAG_S3_RETENTION_COUNT=$RAG_S3_RETENTION_COUNT; skipping snapshot pruning."
+    return 0
+  fi
+
+  if [ "$RAG_S3_RETENTION_COUNT" -lt 1 ]; then
+    log "RAG_S3_RETENTION_COUNT=$RAG_S3_RETENTION_COUNT; skipping snapshot pruning."
+    return 0
+  fi
+
+  mapfile -t snapshot_keys < <(
+    aws s3 ls --region "$RAG_S3_REGION" --endpoint-url "$RAG_S3_ENDPOINT" "$snapshots_uri" --recursive |
+      awk -v archive="$RAG_S3_ARCHIVE_NAME" '$4 ~ archive "$" { print $1 " " $2 " " $4 }' |
+      sort |
+      awk '{ print $3 }'
+  )
+
+  local snapshot_count="${#snapshot_keys[@]}"
+  if [ "$snapshot_count" -le "$RAG_S3_RETENTION_COUNT" ]; then
+    log "Snapshot retention OK: $snapshot_count snapshot archive(s), limit $RAG_S3_RETENTION_COUNT."
+    return 0
+  fi
+
+  local prune_count=$((snapshot_count - RAG_S3_RETENTION_COUNT))
+  log "Pruning $prune_count old snapshot archive(s); keeping latest $RAG_S3_RETENTION_COUNT."
+  local i
+  for ((i = 0; i < prune_count; i++)); do
+    aws s3 rm --region "$RAG_S3_REGION" --endpoint-url "$RAG_S3_ENDPOINT" \
+      "s3://${RAG_S3_BUCKET}/${snapshot_keys[$i]}"
+  done
+}
+
 main() {
   if ! enabled; then
     log "Skipping save because ENABLE_RAG_S3_CACHE=$ENABLE_RAG_S3_CACHE."
@@ -142,6 +178,7 @@ EOF
   log "Uploading RAG cache snapshot to $latest_uri."
   aws s3 cp --region "$RAG_S3_REGION" --endpoint-url "$RAG_S3_ENDPOINT" "$archive" "$latest_uri"
   aws s3 cp --region "$RAG_S3_REGION" --endpoint-url "$RAG_S3_ENDPOINT" "$archive" "$snapshot_uri"
+  prune_old_snapshots
   log "RAG cache save complete."
 }
 

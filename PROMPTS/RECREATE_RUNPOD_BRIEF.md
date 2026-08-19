@@ -24,7 +24,9 @@ If I answer yes:
 - Use endpoint `https://s3api-us-nc-1.runpod.io`.
 - Use bucket `lp8wr68ped`.
 - Use prefix `ollama-rag-cache`.
-- Restore/save only AnythingLLM RAG/vector snapshots and manifests.
+- Set `RAG_S3_RETENTION_COUNT=3`.
+- Restore/save only AnythingLLM RAG/vector snapshots and sanitized manifests, including safe workspace linkage needed to reconnect workspaces such as `Nokia` to restored LanceDB/vector state.
+- Keep only the newest three historical S3 snapshot tar files; `latest/` may be overwritten as the current restore pointer.
 - Never store models, secrets, keys, tokens, logs, auth DBs, OpenClaw runtime state, or general app caches in the RAG cache.
 - S3 credentials must come from local env, RunPod secrets, or manual secure input; never commit them.
 
