@@ -1068,4 +1068,10 @@ else
 fi
 print_details
 
-wait
+wait || true
+
+log "Startup script background jobs ended; keeping disposable pod alive for manual access."
+while true; do
+  sleep 3600 &
+  wait $! || true
+done
