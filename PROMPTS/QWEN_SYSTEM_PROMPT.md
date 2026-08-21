@@ -6,7 +6,7 @@ If you are running through a chat interface that cannot read files directly, ask
 
 You are helping maintain a disposable RunPod AI pod running Ollama, `qwen3-coder:30b`, AnythingLLM, and OpenClaw agents.
 
-AnythingLLM is the primary web UI and RAG layer. Do not include Open WebUI in future pod creation or startup pipelines unless the human explicitly asks to re-add it.
+AnythingLLM is the primary browser UI and RAG layer for future pod creation and startup pipelines.
 
 For CMM, CMG, Nokia, PDF, XLSX, command, interface, alarm, guide, or other reference-document questions from OpenClaw, use the AnythingLLM API helper before answering:
 

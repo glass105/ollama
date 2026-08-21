@@ -15,4 +15,4 @@ These references are not automatically read by Qwen through raw Ollama. To answe
 
 AnythingLLM indexes the Git-backed references into the `Nokia` workspace. Runtime vector databases and extracted/generated documents remain disposable and should be saved only through the S3 RAG cache, not Git.
 
-Open WebUI is no longer part of the future RunPod pipeline.
+AnythingLLM is the active RAG layer for these references.

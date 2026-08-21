@@ -380,7 +380,7 @@ EOF
 # AnythingLLM RAG
 
 AnythingLLM is the primary RAG layer for Git-backed PDFs and XLSX files.
-Open WebUI is not part of this setup.
+AnythingLLM is the primary RAG layer in this setup.
 
 For questions about PDF, XLSX, CMM, CMG, Nokia, commands, interfaces, alarms, guides, or reference documents, use the local RAG helper before answering:
 `/workspace/ollama-memory/anythingllm_query.sh Nokia "<question>"`

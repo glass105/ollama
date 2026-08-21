@@ -22,4 +22,4 @@ This setup deliberately avoids RunPod network storage and persistent RunPod volu
 
 The current Markdown memory is built by `load_memory.sh` into `/workspace/current_context.md`. This context is not a true model fine-tune. Chat interfaces and agents must include it through their own prompt, tool, RAG, or context layer.
 
-As of 2026-08-12, Open WebUI is intentionally removed from future pod launches. AnythingLLM is the primary web UI and RAG layer.
+AnythingLLM is the primary browser UI and RAG layer for future pod launches.

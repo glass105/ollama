@@ -1,168 +1,96 @@
-# Recreate Disposable RunPod Pipeline Prompt
-
-Use this prompt in a fresh Codex task to recreate the disposable RunPod AI pod setup.
+# Recreate RunPod Pipeline Prompt
 
 ```text
 You are Codex acting as a DevOps/AI infrastructure engineer.
 
-Goal: recreate my disposable RunPod AI pod setup from the GitHub repo:
-
+Recreate my RunPod Ollama environment from:
 https://github.com/glass105/ollama.git
 
-Use the RunPod API key already stored in:
+Use the RunPod API key from:
 C:\Users\joerc\OneDrive\Documents\ollama\.env
 
-Use the project-local SSH public key as the pod PUBLIC_KEY:
-C:\Users\joerc\OneDrive\Documents\ollama\.ssh\ollama_runpod_ed25519.pub
+Before creating the pod, ask:
+"Do you want to restore persistent RAG/vector state from S3?"
 
-Hard rules:
-- Do not use RunPod network storage.
-- Do not use persistent RunPod volume storage.
-- Set RunPod volumeInGb=0.
-- Do not store models, secrets, keys, tokens, logs, caches, databases, vector stores, or OpenClaw runtime state in GitHub.
-- GitHub is only for scripts, configuration, prompts, Markdown memory, PDFs, spreadsheets, and images.
-- The model can be re-downloaded when a fresh pod starts.
-- Use qwen3-coder:30b as the default model.
-- AnythingLLM is the primary web UI and RAG layer.
-- Do not include Open WebUI in this setup.
-- Approved RunPod GPUs only:
+If yes:
+- Set ENABLE_RAG_S3_CACHE=true.
+- Use RunPod S3 cache:
+  - region: us-nc-1
+  - endpoint: https://s3api-us-nc-1.runpod.io
+  - bucket: lp8wr68ped
+  - prefix: ollama-rag-cache
+- Use S3 only for AnythingLLM RAG/vector snapshots, LanceDB, document/vector cache files, and sanitized workspace manifests.
+- Keep only three tar files total: latest plus two historical snapshots.
+- Do not store models, secrets, keys, tokens, logs, auth DBs, OpenClaw runtime state, or general caches in S3 or Git.
+
+If no:
+- Set ENABLE_RAG_S3_CACHE=false.
+- Rebuild AnythingLLM RAG from Git-backed PDFs/XLSX files.
+
+Rules:
+- No RunPod network storage.
+- No persistent pod volume.
+- volumeInGb=0.
+- No networkVolumeId.
+- Approved GPUs only:
   - NVIDIA RTX 4000 Ada Generation
   - NVIDIA RTX A4000
   - NVIDIA RTX A4500
   - NVIDIA RTX A5000
-- If none of those GPUs are available, stop and ask before using another GPU.
+- If none are available, stop and ask.
+- Default model: qwen3-coder:30b.
 
-Pipeline:
-1. Work from:
-   C:\Users\joerc\OneDrive\Documents\ollama
-2. Pull latest main from GitHub.
-3. Verify scripts:
-   - start.sh
-   - load_memory.sh
-   - ask_with_memory.sh
-   - sync_memory.sh
-   - autosync_memory.sh
-   - restore_rag_cache.sh
-   - save_rag_cache.sh
-   - auto_index_anythingllm_pdfs.py
-   - query_anythingllm.py
-   - anythingllm_query.sh
-    - openclaw_ollama_rag_proxy.py
-    - equipment_https_bridge.py
-    - equipment_bridge_client.py
-    - stop_equipment_https_bridge.sh
-4. Ensure memory loads locally with load_memory.sh.
-5. Ask whether to enable the S3 RAG cache. If yes, use cache ID `lp8wr68ped`; if no, rebuild RAG from Git-backed PDFs/XLSX files.
-6. Create a RunPod pod using REST API:
-   - name: ollama-qwen3-coder-disposable
-   - imageName: runpod/pytorch:1.0.3-cu1281-torch291-ubuntu2404
-   - cloudType: SECURE
-   - computeType: GPU
-   - gpuCount: 1
-   - gpuTypeIds:
-     - NVIDIA RTX 4000 Ada Generation
-     - NVIDIA RTX A4000
-     - NVIDIA RTX A4500
-     - NVIDIA RTX A5000
-   - gpuTypePriority: custom
-   - containerDiskInGb: 120
-   - volumeInGb: 0
-   - no networkVolumeId
-   - ports:
-     - 3001/http
-      - 18789/http
-      - 19124/http
-      - 22/tcp
-7. Include env:
-   - GITHUB_MEMORY_REPO=https://github.com/glass105/ollama.git
-   - GITHUB_BRANCH=main
-   - PUBLIC_KEY=<contents of C:\Users\joerc\OneDrive\Documents\ollama\.ssh\ollama_runpod_ed25519.pub>
-   - MEMORY_DIR=/workspace/ollama-memory
-   - COMBINED_CONTEXT=/workspace/current_context.md
-   - OLLAMA_MODEL=qwen3-coder:30b
-   - OLLAMA_HOST=127.0.0.1:11434
-   - ENABLE_MODEL_PULL=true
-   - RAG_EMBEDDING_MODEL=nomic-embed-text:latest
-   - ENABLE_ANYTHINGLLM=true
-   - ENABLE_ANYTHINGLLM_PDF_AUTO_INDEX=true
-   - ANYTHINGLLM_PUBLIC_PORT=3001
-   - ANYTHINGLLM_INTERNAL_PORT=3010
-   - ANYTHINGLLM_PDF_DIR=/workspace/ollama-memory/PDFS
-   - SYNC_INTERVAL_SECONDS=1800
-   - ENABLE_OPENCLAW=true
-   - OPENCLAW_GATEWAY_PORT=18789
-   - OPENCLAW_GATEWAY_BIND=lan
-   - OPENCLAW_GATEWAY_AUTH=token
-   - OPENCLAW_GATEWAY_TOKEN=<generate a random token locally, do not commit it>
-   - OPENCLAW_PUBLIC_URL=https://<POD_ID>-18789.proxy.runpod.net once the pod ID is known
-   - OPENCLAW_DASHBOARD_URL_FILE=/tmp/openclaw/dashboard-url
-   - ENABLE_OPENCLAW_RAG_PROXY=true
-    - OPENCLAW_RAG_PROXY_PORT=11437
-    - ENABLE_EQUIPMENT_HTTPS_BRIDGE=true
-    - EQUIPMENT_BRIDGE_PORT=19124
-8. If S3 RAG cache is enabled, include:
-   - ENABLE_RAG_S3_CACHE=true
-   - RAG_S3_CACHE_ID=lp8wr68ped
-   - RAG_S3_REGION=us-nc-1
-   - RAG_S3_ENDPOINT=https://s3api-us-nc-1.runpod.io
-   - RAG_S3_BUCKET=lp8wr68ped
-   - RAG_S3_PREFIX=ollama-rag-cache
-   - RAG_S3_RETENTION_COUNT=2
-   - RAG_S3_ACCESS_KEY_ID=<secret, do not commit>
-   - RAG_S3_SECRET_ACCESS_KEY=<secret, do not commit>
-9. Use this pod startup command:
-   cd /workspace && \
-   git clone https://github.com/glass105/ollama.git ollama-memory || true && \
-   cd /workspace/ollama-memory && \
-   git pull && \
-   chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh restore_rag_cache.sh save_rag_cache.sh auto_index_anythingllm_pdfs.py query_anythingllm.py anythingllm_query.sh openclaw_ollama_rag_proxy.py && \
-   bash start.sh
-10. If SSH is needed, preserve RunPod default startup by launching /start.sh in the background before the repo startup command.
-11. Poll the pod until public IP and SSH port are available.
-12. Verify inside the pod:
-    - volumeInGb is 0 from RunPod API
-    - nvidia-smi shows an approved GPU
-    - /workspace/current_context.md exists
-    - Ollama responds at localhost:11434
-    - ollama list includes qwen3-coder:30b
-    - ollama list includes nomic-embed-text:latest
-    - AnythingLLM responds on localhost:3001
-    - AnythingLLM uses Ollama/qwen3-coder:30b
-    - AnythingLLM auto-indexed PDFs/XLSX files under PDFS/<folder>/ into matching workspaces
-    - OpenClaw Ollama RAG proxy responds on localhost:11437
-    - `bash /workspace/ollama-memory/anythingllm_query.sh Nokia "What can you answer from the CMM guide?"` returns an AnythingLLM RAG answer
-    - OpenClaw gateway responds on localhost:18789
-    - OpenClaw default model is ollama/qwen3-coder:30b
-    - `bash /workspace/ollama-memory/ask_with_memory.sh "What is this pod setup?"` answers using the Markdown memory
-13. Expose:
-    - AnythingLLM:
-      https://<POD_ID>-3001.proxy.runpod.net/
-    - OpenClaw:
-      https://<POD_ID>-18789.proxy.runpod.net/
-14. For easier OpenClaw login, read and report:
-    `/tmp/openclaw/dashboard-url`
-    This contains the dashboard URL, WebSocket URL, gateway token, and tokenized dashboard URL. Do not commit it.
-15. If OpenClaw browser says "Browser origin not allowed," set:
-    gateway.controlUi.allowedOrigins = [
-      "https://<POD_ID>-18789.proxy.runpod.net"
-    ]
-    and restart the OpenClaw gateway.
-16. If OpenClaw says "Device pairing required," run:
-    openclaw devices approve <REQUEST_ID> --url ws://127.0.0.1:18789 --token <TOKEN>
-17. Final output must include:
-    - Pod ID
-    - GPU used
-    - volumeInGb
-    - whether S3 RAG cache was used
-    - SSH command
-    - project-local SSH key path
-    - AnythingLLM URL
-    - OpenClaw Dashboard URL
-    - OpenClaw tokenized Dashboard URL from /tmp/openclaw/dashboard-url
-    - where local secret files are saved
-    - verification checklist
+Create pod:
+- name: ollama-qwen3-coder-disposable
+- imageName: runpod/pytorch:1.0.3-cu1281-torch291-ubuntu2404
+- cloudType: SECURE
+- computeType: GPU
+- gpuCount: 1
+- gpuTypePriority: custom
+- containerDiskInGb: 120
+- volumeInGb: 0
+- ports: 3001/http, 18789/http, 19124/http, 22/tcp
 
-Save generated OpenClaw tokens locally only, for example:
+Use the project-local SSH public key as PUBLIC_KEY:
+C:\Users\joerc\OneDrive\Documents\ollama\.ssh\ollama_runpod_ed25519.pub
 
-C:\Users\joerc\OneDrive\Documents\ollama\tmp\openclaw_public_gateway_token.local.txt
+Set env for Ollama, AnythingLLM, OpenClaw, the OpenClaw RAG proxy on 11437, Git-backed Markdown memory, PDF/XLSX auto-indexing, optional S3 restore/save, and optional equipment HTTPS bridge.
+
+Use staged startup:
+- START_BACKGROUND_SERVICES=true
+- START_MODEL_PULL_IN_BACKGROUND=true
+- WAIT_FOR_ANYTHINGLLM_BEFORE_OPENCLAW=false
+- OPENCLAW_RAG_QUERY_TIMEOUT_SECONDS=90
+- OPENCLAW_RAG_MAX_CONTEXT_CHARS=4000
+- OPENCLAW_RAG_MAX_QUESTION_CHARS=2000
+
+Generate OpenClaw and bridge tokens locally. Save secrets only in ignored local files and pod /tmp paths. Never commit secrets.
+
+Startup command:
+cd /workspace && git clone https://github.com/glass105/ollama.git ollama-memory || true && cd /workspace/ollama-memory && git pull && chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh restore_rag_cache.sh save_rag_cache.sh auto_index_anythingllm_pdfs.py query_anythingllm.py anythingllm_query.sh openclaw_ollama_rag_proxy.py equipment_https_bridge.py equipment_bridge_client.py stop_equipment_https_bridge.sh && bash start.sh
+
+Verify:
+- volumeInGb is 0
+- GPU is approved
+- Ollama responds on 127.0.0.1:11434
+- AnythingLLM responds on port 3001
+- qwen3-coder:30b and nomic-embed-text:latest are installed
+- /workspace/current_context.md exists
+- AnythingLLM uses Ollama/qwen3-coder:30b
+- Nokia workspace is restored or rebuilt
+- `bash /workspace/ollama-memory/anythingllm_query.sh Nokia "What command lists all CMM interfaces?"` returns a RAG-grounded answer
+- OpenClaw responds on port 18789
+- OpenClaw uses the RAG proxy at 127.0.0.1:11437
+
+Final output:
+- Pod ID
+- GPU used
+- volumeInGb
+- whether S3 RAG cache was restored
+- SSH command
+- AnythingLLM URL
+- OpenClaw Dashboard URL
+- OpenClaw tokenized Dashboard URL
+- local secret file paths
+- verification checklist
 ```

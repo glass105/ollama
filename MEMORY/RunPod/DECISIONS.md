@@ -10,7 +10,7 @@
 - Ollama should not be exposed publicly without authentication or another protective access layer.
 - Approved RunPod GPUs are RTX 4000 Ada, RTX A4000, RTX A4500, and RTX A5000.
 - If none of the approved GPUs are available, stop and ask before using another GPU.
-- Open WebUI is removed from future pod launches as of 2026-08-12.
+- AnythingLLM is the primary browser UI for future pod launches as of 2026-08-12.
 - AnythingLLM is the primary web UI and RAG layer. It should run on internal port `3010` and be exposed on public port `3001`.
 - AnythingLLM RAG embeddings should use Ollama with `nomic-embed-text:latest`.
 - AnythingLLM PDF/XLSX indexing should scan Git-backed reference subdirectories in `PDFS/` at startup; each immediate subdirectory becomes an AnythingLLM workspace with the same name.
