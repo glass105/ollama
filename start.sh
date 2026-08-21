@@ -890,9 +890,13 @@ ensure_anythingllm() {
   configure_anythingllm_env
   configure_anythingllm_frontend_env
 
-  log "Building AnythingLLM frontend."
   cd "$ANYTHINGLLM_DIR/frontend"
-  yarn build
+  if [ -f "$ANYTHINGLLM_DIR/frontend/dist/_index.html" ]; then
+    log "Reusing existing AnythingLLM frontend build."
+  else
+    log "Building AnythingLLM frontend."
+    yarn build
+  fi
   rm -rf "$ANYTHINGLLM_DIR/server/public"
   cp -r "$ANYTHINGLLM_DIR/frontend/dist" "$ANYTHINGLLM_DIR/server/public"
 
