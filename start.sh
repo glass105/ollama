@@ -53,6 +53,7 @@ ENABLE_EQUIPMENT_HTTPS_BRIDGE="${ENABLE_EQUIPMENT_HTTPS_BRIDGE:-false}"
 EQUIPMENT_BRIDGE_HOST="${EQUIPMENT_BRIDGE_HOST:-0.0.0.0}"
 EQUIPMENT_BRIDGE_PORT="${EQUIPMENT_BRIDGE_PORT:-19124}"
 EQUIPMENT_BRIDGE_DIR="${EQUIPMENT_BRIDGE_DIR:-/tmp/equipment-bridge}"
+RUNPOD_READY_EXTRA_PORTS="${RUNPOD_READY_EXTRA_PORTS:-19123 19124}"
 
 log() {
   echo "[start] $*"
@@ -136,12 +137,34 @@ PY
       fi
       ;;
   esac
+
+  for port in $RUNPOD_READY_EXTRA_PORTS; do
+    case "$port" in
+      ""|"$ANYTHINGLLM_PUBLIC_PORT"|"$OPENCLAW_GATEWAY_PORT") continue ;;
+    esac
+    if command -v python3 >/dev/null 2>&1 && ! curl -m 1 -fsS "http://127.0.0.1:${port}" >/dev/null 2>&1; then
+      log "Starting temporary RunPod readiness response on port $port."
+      mkdir -p /tmp/runpod-placeholders
+      nohup python3 -m http.server "$port" --bind 0.0.0.0 \
+        > "/tmp/runpod-placeholders/${port}.log" 2>&1 &
+      echo $! > "/tmp/runpod-placeholders/${port}.pid"
+    fi
+  done
 }
 
 stop_startup_openclaw_placeholder() {
   if [ -f /tmp/openclaw/startup-placeholder.pid ]; then
     kill "$(cat /tmp/openclaw/startup-placeholder.pid)" 2>/dev/null || true
     rm -f /tmp/openclaw/startup-placeholder.pid
+    sleep 1
+  fi
+}
+
+stop_runpod_ready_placeholder_port() {
+  local port="$1"
+  if [ -f "/tmp/runpod-placeholders/${port}.pid" ]; then
+    kill "$(cat "/tmp/runpod-placeholders/${port}.pid")" 2>/dev/null || true
+    rm -f "/tmp/runpod-placeholders/${port}.pid"
     sleep 1
   fi
 }
@@ -1051,6 +1074,7 @@ start_equipment_https_bridge() {
     esac
   fi
 
+  stop_runpod_ready_placeholder_port "$EQUIPMENT_BRIDGE_PORT"
   log "Starting equipment HTTPS bridge on $EQUIPMENT_BRIDGE_HOST:$EQUIPMENT_BRIDGE_PORT."
   nohup python3 "$MEMORY_DIR/equipment_https_bridge.py" \
     --host "$EQUIPMENT_BRIDGE_HOST" \
