@@ -65,6 +65,34 @@ log() {
   echo "[start] $*"
 }
 
+wait_for_apt_locks() {
+  command -v fuser >/dev/null 2>&1 || return 0
+
+  local locks=(
+    /var/lib/dpkg/lock-frontend
+    /var/lib/dpkg/lock
+    /var/lib/apt/lists/lock
+    /var/cache/apt/archives/lock
+  )
+
+  for _ in $(seq 1 120); do
+    local busy=false
+    for lock in "${locks[@]}"; do
+      if [ -e "$lock" ] && fuser "$lock" >/dev/null 2>&1; then
+        busy=true
+        break
+      fi
+    done
+    if [ "$busy" = false ]; then
+      return 0
+    fi
+    log "Waiting for apt/dpkg lock before continuing."
+    sleep 5
+  done
+
+  log "Timed out waiting for apt/dpkg locks; continuing anyway."
+}
+
 start_startup_http_placeholders() {
   if command -v nginx >/dev/null 2>&1 && [ -f /etc/nginx/nginx.conf ]; then
     log "Installing temporary AnythingLLM readiness response on port $ANYTHINGLLM_PUBLIC_PORT."
@@ -1113,6 +1141,8 @@ run_anythingllm_phase() {
 }
 
 run_openclaw_phase() {
+  wait_for_apt_locks
+
   case "$(printf '%s' "$WAIT_FOR_ANYTHINGLLM_BEFORE_OPENCLAW" | tr '[:upper:]' '[:lower:]')" in
     true|1|yes|y|on) wait_for_anythingllm || true ;;
   esac
