@@ -354,7 +354,7 @@ if not dist.exists():
 
 replacement = (
     'if (text && isSilentReplyPayloadText(text, silentToken)) {\\n'
-    '\\t\\ttext = "I received the request, but the model returned OpenClaw\\'s silent NO_REPLY control token instead of an answer. Please retry in a new session with the exact document or command you want searched.";\\n'
+    "\\t\\ttext = \"I received the request, but the model returned OpenClaw's silent NO_REPLY control token instead of an answer. Please retry in a new session with the exact document or command you want searched.\";\\n"
     '\\t}'
 )
 
