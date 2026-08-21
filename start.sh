@@ -58,6 +58,94 @@ log() {
   echo "[start] $*"
 }
 
+start_startup_http_placeholders() {
+  if command -v nginx >/dev/null 2>&1 && [ -f /etc/nginx/nginx.conf ]; then
+    log "Installing temporary AnythingLLM readiness response on port $ANYTHINGLLM_PUBLIC_PORT."
+    python3 - /etc/nginx/nginx.conf "$ANYTHINGLLM_PUBLIC_PORT" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+path = Path(sys.argv[1])
+port = sys.argv[2]
+text = path.read_text()
+
+def remove_matching_servers(src: str) -> str:
+    out = []
+    i = 0
+    pattern = re.compile(r'(?m)^[ \t]*server[ \t]*\{')
+    while True:
+        match = pattern.search(src, i)
+        if not match:
+            out.append(src[i:])
+            break
+        start = match.start()
+        brace = src.find("{", match.start(), match.end() + 1)
+        depth = 0
+        end = None
+        j = brace
+        while j < len(src):
+            if src[j] == "{":
+                depth += 1
+            elif src[j] == "}":
+                depth -= 1
+                if depth == 0:
+                    end = j + 1
+                    break
+            j += 1
+        if end is None:
+            out.append(src[i:])
+            break
+        block = src[start:end]
+        if re.search(rf'(?m)^[ \t]*listen[ \t]+{re.escape(port)}(?:[ \t;]|$)', block):
+            out.append(src[i:start])
+        else:
+            out.append(src[i:end])
+        i = end
+    return "".join(out)
+
+block = f"""
+    # Temporary RunPod readiness response while AnythingLLM starts
+    server {{
+        listen {port};
+        location / {{
+            add_header Cache-Control no-cache;
+            default_type text/plain;
+            return 200 "AnythingLLM is starting\\n";
+        }}
+    }}
+"""
+cleaned = remove_matching_servers(text)
+if "http {" in cleaned:
+    cleaned = cleaned.replace("http {", "http {\n" + block, 1)
+else:
+    cleaned += "\nhttp {\n" + block + "\n}\n"
+path.write_text(cleaned)
+PY
+    nginx -t >/dev/null 2>&1 && (nginx -s reload || service nginx restart || true)
+  fi
+
+  case "$(printf '%s' "$ENABLE_OPENCLAW" | tr '[:upper:]' '[:lower:]')" in
+    true|1|yes|y|on)
+      if command -v python3 >/dev/null 2>&1 && ! curl -m 1 -fsS "http://127.0.0.1:${OPENCLAW_GATEWAY_PORT}" >/dev/null 2>&1; then
+        log "Starting temporary OpenClaw readiness response on port $OPENCLAW_GATEWAY_PORT."
+        mkdir -p /tmp/openclaw
+        nohup python3 -m http.server "$OPENCLAW_GATEWAY_PORT" --bind 0.0.0.0 \
+          > /tmp/openclaw/startup-placeholder.log 2>&1 &
+        echo $! > /tmp/openclaw/startup-placeholder.pid
+      fi
+      ;;
+  esac
+}
+
+stop_startup_openclaw_placeholder() {
+  if [ -f /tmp/openclaw/startup-placeholder.pid ]; then
+    kill "$(cat /tmp/openclaw/startup-placeholder.pid)" 2>/dev/null || true
+    rm -f /tmp/openclaw/startup-placeholder.pid
+    sleep 1
+  fi
+}
+
 restore_rag_cache() {
   case "$(printf '%s' "$ENABLE_RAG_S3_CACHE" | tr '[:upper:]' '[:lower:]')" in
     true|1|yes|y|on) ;;
@@ -497,6 +585,7 @@ start_openclaw_gateway() {
 
   write_openclaw_dashboard_url
 
+  stop_startup_openclaw_placeholder
   log "Starting OpenClaw gateway on $OPENCLAW_GATEWAY_BIND:$OPENCLAW_GATEWAY_PORT with auth=$OPENCLAW_GATEWAY_AUTH."
   local openclaw_token_args=""
   if [ "$OPENCLAW_GATEWAY_AUTH" = "token" ] && [ -n "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
@@ -1029,6 +1118,7 @@ if [ "${START_ONLY_ANYTHINGLLM:-false}" = "true" ]; then
 fi
 
 install_packages
+start_startup_http_placeholders
 ensure_repo
 chmod +x "$MEMORY_DIR/start.sh" "$MEMORY_DIR/load_memory.sh" "$MEMORY_DIR/sync_memory.sh" "$MEMORY_DIR/autosync_memory.sh"
 chmod +x "$MEMORY_DIR/auto_index_anythingllm_pdfs.py" 2>/dev/null || true
