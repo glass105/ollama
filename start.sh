@@ -601,7 +601,15 @@ start_openclaw_rag_proxy() {
   fi
 
   log "Starting OpenClaw Ollama RAG proxy on 127.0.0.1:$OPENCLAW_RAG_PROXY_PORT."
-  pkill -f openclaw_ollama_rag_proxy.py 2>/dev/null || true
+  if [ -f /tmp/openclaw-rag-proxy.pid ]; then
+    local old_pid
+    old_pid="$(cat /tmp/openclaw-rag-proxy.pid 2>/dev/null || true)"
+    case "$old_pid" in
+      ''|*[!0-9]*) ;;
+      *) kill "$old_pid" 2>/dev/null || true ;;
+    esac
+    rm -f /tmp/openclaw-rag-proxy.pid
+  fi
   OPENCLAW_RAG_PROXY_PORT="$OPENCLAW_RAG_PROXY_PORT" \
     OPENCLAW_RAG_QUERY_TIMEOUT_SECONDS="$OPENCLAW_RAG_QUERY_TIMEOUT_SECONDS" \
     OPENCLAW_RAG_MAX_CONTEXT_CHARS="$OPENCLAW_RAG_MAX_CONTEXT_CHARS" \
@@ -611,6 +619,7 @@ start_openclaw_rag_proxy() {
     ANYTHINGLLM_QUERY_HELPER="$MEMORY_DIR/anythingllm_query.sh" \
     nohup python3 "$MEMORY_DIR/openclaw_ollama_rag_proxy.py" \
     > /tmp/openclaw-rag-proxy.log 2>&1 &
+  echo $! > /tmp/openclaw-rag-proxy.pid
 }
 
 start_openclaw_gateway() {
