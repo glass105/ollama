@@ -136,7 +136,7 @@ The startup script:
 3. Clones or updates this repo in `/workspace/ollama-memory`.
 4. Builds `/workspace/current_context.md`.
 5. Starts Ollama.
-6. Pulls `qwen3-coder:30b` and `nomic-embed-text:latest` in a background phase by default.
+6. Pulls `qwen3-coder:30b` and `qwen3-embedding:8b` in a background phase by default.
 7. Starts memory autosync.
 8. Prints connection details once the boot phase is ready.
 9. Installs and starts AnythingLLM on port `3001` in a background phase.
@@ -175,7 +175,7 @@ LLM provider: Ollama
 Ollama base URL: http://127.0.0.1:11434
 Chat model: qwen3-coder:30b
 Embedding provider: Ollama
-Embedding model: nomic-embed-text:latest
+Embedding model: qwen3-embedding:8b
 ```
 
 AnythingLLM runtime data, workspace uploads, vector stores, logs, Node dependencies, and databases are disposable pod-local state. They must not be committed to GitHub.
@@ -188,7 +188,7 @@ Reference auto-indexing is enabled by default:
 ENABLE_ANYTHINGLLM=true
 ENABLE_ANYTHINGLLM_PDF_AUTO_INDEX=true
 ANYTHINGLLM_PDF_DIR=/workspace/ollama-memory/PDFS
-RAG_EMBEDDING_MODEL=nomic-embed-text:latest
+RAG_EMBEDDING_MODEL=qwen3-embedding:8b
 ```
 
 The auto-indexer scans each immediate reference subdirectory and creates or reuses an AnythingLLM workspace with the same name:
@@ -428,7 +428,7 @@ If model pull fails, verify network access and disk space:
 
 ```bash
 ollama pull qwen3-coder:30b
-ollama pull nomic-embed-text:latest
+ollama pull qwen3-embedding:8b
 ```
 
 If memory sync fails, verify GitHub auth and branch state:

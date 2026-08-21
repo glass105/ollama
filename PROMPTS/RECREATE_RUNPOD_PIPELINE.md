@@ -74,7 +74,7 @@ Verify:
 - GPU is approved
 - Ollama responds on 127.0.0.1:11434
 - AnythingLLM responds on port 3001
-- qwen3-coder:30b and nomic-embed-text:latest are installed
+- qwen3-coder:30b and qwen3-embedding:8b are installed
 - /workspace/current_context.md exists
 - AnythingLLM uses Ollama/qwen3-coder:30b
 - Nokia workspace is restored or rebuilt

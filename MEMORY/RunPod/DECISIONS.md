@@ -12,7 +12,7 @@
 - If none of the approved GPUs are available, stop and ask before using another GPU.
 - AnythingLLM is the primary browser UI for future pod launches as of 2026-08-12.
 - AnythingLLM is the primary web UI and RAG layer. It should run on internal port `3010` and be exposed on public port `3001`.
-- AnythingLLM RAG embeddings should use Ollama with `nomic-embed-text:latest`.
+- AnythingLLM RAG embeddings should use Ollama with `qwen3-embedding:8b`.
 - AnythingLLM PDF/XLSX indexing should scan Git-backed reference subdirectories in `PDFS/` at startup; each immediate subdirectory becomes an AnythingLLM workspace with the same name.
 - The RunPod base image can include an existing nginx `listen 3001` server block. Startup must remove any pre-existing nginx server block for the AnythingLLM public port before installing the AnythingLLM proxy.
 - AnythingLLM frontend builds must use relative API calls (`VITE_API_BASE='/api'`) so browser clients do not try to call `localhost:3001`.

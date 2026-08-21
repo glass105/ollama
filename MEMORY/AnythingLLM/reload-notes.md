@@ -11,7 +11,7 @@ Recommended startup behavior:
    - Ollama base URL: `http://127.0.0.1:11434`
    - Chat model: `qwen3-coder:30b`
    - Embedding provider: `ollama`
-   - Embedding model: `nomic-embed-text:latest`
+   - Embedding model: `qwen3-embedding:8b`
 4. Create or update the AnythingLLM workspace `Nokia`.
 5. Upload/re-index source documents from `PDFS/Nokia/`.
 6. Treat generated AnythingLLM DB/vector/cache files as disposable runtime state.
