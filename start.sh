@@ -830,7 +830,6 @@ if [ -f "$ANYTHINGLLM_DEPLOY_DIR/collector.pid" ]; then
 fi
 if command -v fuser >/dev/null 2>&1; then
   fuser -k ${ANYTHINGLLM_INTERNAL_PORT}/tcp 2>/dev/null || true
-  fuser -k 8888/tcp 2>/dev/null || true
 else
   pkill -f '/usr/local/bin/node index.js' 2>/dev/null || true
 fi
