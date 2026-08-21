@@ -59,17 +59,28 @@ Use qwen3-coder:30b as the default model.
 
 Set env for Ollama, AnythingLLM, OpenClaw, the OpenClaw-only Ollama RAG proxy on port 11437, the opt-in equipment HTTPS bridge (`ENABLE_EQUIPMENT_HTTPS_BRIDGE=true`, port 19124), Git-backed Markdown memory, PDF/XLSX auto-indexing, and optional S3 RAG-cache restore/upload. Use generated token auth for both OpenClaw and the equipment bridge; save tokens only in local ignored files and pod `/tmp` paths, and never commit them.
 
+Use the staged startup defaults:
+- `START_BACKGROUND_SERVICES=true`
+- `START_MODEL_PULL_IN_BACKGROUND=true`
+- `WAIT_FOR_ANYTHINGLLM_BEFORE_OPENCLAW=false`
+- `OPENCLAW_RAG_QUERY_TIMEOUT_SECONDS=90`
+- `OPENCLAW_RAG_MAX_CONTEXT_CHARS=4000`
+- `OPENCLAW_RAG_MAX_QUESTION_CHARS=2000`
+
+Do not inject full Markdown memory, full PDF text, or full AnythingLLM answers into OpenClaw. AnythingLLM remains the RAG source of truth; OpenClaw should call the helper/proxy on demand and receive only concise retrieved context.
+
 For easier OpenClaw login, set `OPENCLAW_PUBLIC_URL=https://<POD_ID>-18789.proxy.runpod.net` once the pod ID is known, set `OPENCLAW_GATEWAY_AUTH=token`, and save/print the pod helper file `/tmp/openclaw/dashboard-url` plus the local token file path.
 
 Startup command:
-cd /workspace && git clone https://github.com/glass105/ollama.git ollama-memory || true && cd /workspace/ollama-memory && git pull && chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh restore_rag_cache.sh save_rag_cache.sh auto_index_anythingllm_pdfs.py query_anythingllm.py anythingllm_query.sh equipment_https_bridge.py equipment_bridge_client.py stop_equipment_https_bridge.sh && bash start.sh
+cd /workspace && git clone https://github.com/glass105/ollama.git ollama-memory || true && cd /workspace/ollama-memory && git pull && chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh restore_rag_cache.sh save_rag_cache.sh auto_index_anythingllm_pdfs.py query_anythingllm.py anythingllm_query.sh openclaw_ollama_rag_proxy.py equipment_https_bridge.py equipment_bridge_client.py stop_equipment_https_bridge.sh && bash start.sh
 
 Preserve RunPod SSH by launching /start.sh in the background before repo startup if needed.
 
 Verify:
 - volumeInGb is 0
 - GPU is approved
-- Ollama, AnythingLLM, and OpenClaw respond
+- Ollama responds quickly after boot
+- model pulls, AnythingLLM, and OpenClaw start in background and become healthy from their logs
 - qwen3-coder:30b and nomic-embed-text:latest are installed
 - /workspace/current_context.md exists
 - AnythingLLM uses Ollama/qwen3-coder:30b

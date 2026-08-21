@@ -35,3 +35,6 @@
 - OpenClaw should use the OpenClaw-only Ollama RAG proxy at `127.0.0.1:11437`; the proxy calls AnythingLLM for reference prompts and forwards augmented requests to real Ollama at `127.0.0.1:11434`.
 - OpenClaw public dashboard access should remain on token auth for the current OpenClaw `2026.7.1-2` RunPod setup. Password auth was tested behind the RunPod proxy and failed with `token_missing`; use the tokenized dashboard URL and device pairing instead.
 - Other-PC OpenClaw access requires the tokenized dashboard helper file and, if SSH access is needed, the project-local RunPod SSH key. Treat both as secrets and never commit them.
+- Startup should use staged background phases by default: bring up Ollama and public readiness endpoints first, print connection details, then run model pulls, AnythingLLM setup/S3 restore/indexing, and OpenClaw setup in background logs.
+- OpenClaw should receive concise AnythingLLM RAG context only on demand. Do not inject full Markdown memory, full PDF text, or large AnythingLLM answers into OpenClaw prompts.
+- The default OpenClaw RAG proxy limits are `OPENCLAW_RAG_QUERY_TIMEOUT_SECONDS=90`, `OPENCLAW_RAG_MAX_CONTEXT_CHARS=4000`, and `OPENCLAW_RAG_MAX_QUESTION_CHARS=2000`.

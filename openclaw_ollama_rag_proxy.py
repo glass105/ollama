@@ -19,8 +19,9 @@ OLLAMA_UPSTREAM = os.environ.get("OPENCLAW_RAG_PROXY_UPSTREAM", "http://127.0.0.
 MEMORY_DIR = Path(os.environ.get("MEMORY_DIR", "/workspace/ollama-memory"))
 QUERY_HELPER = os.environ.get("ANYTHINGLLM_QUERY_HELPER", str(MEMORY_DIR / "anythingllm_query.sh"))
 DEFAULT_WORKSPACE = os.environ.get("ANYTHINGLLM_DEFAULT_WORKSPACE", "Nokia")
-QUERY_TIMEOUT_SECONDS = int(os.environ.get("OPENCLAW_RAG_QUERY_TIMEOUT_SECONDS", "180"))
-MAX_CONTEXT_CHARS = int(os.environ.get("OPENCLAW_RAG_MAX_CONTEXT_CHARS", "12000"))
+QUERY_TIMEOUT_SECONDS = int(os.environ.get("OPENCLAW_RAG_QUERY_TIMEOUT_SECONDS", "90"))
+MAX_CONTEXT_CHARS = int(os.environ.get("OPENCLAW_RAG_MAX_CONTEXT_CHARS", "4000"))
+MAX_QUESTION_CHARS = int(os.environ.get("OPENCLAW_RAG_MAX_QUESTION_CHARS", "2000"))
 
 TRIGGER_TERMS = tuple(
     term.strip().lower()
@@ -50,6 +51,7 @@ def last_user_message(messages: list[dict]) -> str:
 
 
 def anythingllm_context(question: str) -> str:
+    question = question[:MAX_QUESTION_CHARS]
     try:
         result = subprocess.run(
             [QUERY_HELPER, DEFAULT_WORKSPACE, question],
@@ -66,7 +68,9 @@ def anythingllm_context(question: str) -> str:
     if result.returncode != 0:
         detail = error or output or f"exit status {result.returncode}"
         return f"AnythingLLM helper failed: {detail}"
-    return output[:MAX_CONTEXT_CHARS]
+    if len(output) > MAX_CONTEXT_CHARS:
+        return output[:MAX_CONTEXT_CHARS].rstrip() + "\n\n[AnythingLLM RAG output truncated by proxy.]"
+    return output
 
 
 def inject_chat(payload: dict) -> dict:
@@ -79,9 +83,9 @@ def inject_chat(payload: dict) -> dict:
 
     context = anythingllm_context(question)
     instruction = (
-        "Mandatory source context from AnythingLLM RAG follows. Use it as the source of truth "
-        "for this CMM/CMG/Nokia/reference question. Do not invent commands. Do not mention Open WebUI. "
-        "If the context says the helper failed, report that failure instead of guessing.\n\n"
+        "Use this concise AnythingLLM RAG result as source-of-truth for relevant "
+        "CMM/CMG/Nokia/reference details. Do not invent commands. If it reports a helper "
+        "failure or insufficient evidence, say so instead of guessing.\n\n"
         f"{context}"
     )
     payload = dict(payload)
@@ -97,8 +101,8 @@ def inject_generate(payload: dict) -> dict:
     context = anythingllm_context(prompt)
     payload = dict(payload)
     payload["prompt"] = (
-        "Mandatory source context from AnythingLLM RAG follows. Use it as source of truth. "
-        "Do not invent commands. Do not mention Open WebUI.\n\n"
+        "Use this concise AnythingLLM RAG result as source-of-truth when relevant. "
+        "Do not invent commands.\n\n"
         f"{context}\n\nUser prompt:\n{prompt}"
     )
     log(f"injected AnythingLLM context for generate prompt: {prompt[:120]!r}")

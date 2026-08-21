@@ -136,13 +136,29 @@ The startup script:
 3. Clones or updates this repo in `/workspace/ollama-memory`.
 4. Builds `/workspace/current_context.md`.
 5. Starts Ollama.
-6. Pulls `qwen3-coder:30b` and `nomic-embed-text:latest`.
+6. Pulls `qwen3-coder:30b` and `nomic-embed-text:latest` in a background phase by default.
 7. Starts memory autosync.
-8. Installs and starts AnythingLLM on port `3001`.
-9. Restores optional S3 RAG cache if enabled.
-10. Auto-indexes PDFs and XLSX workbooks from `PDFS/` into AnythingLLM workspaces.
-11. Starts OpenClaw if enabled.
-12. Prints connection details.
+8. Prints connection details once the boot phase is ready.
+9. Installs and starts AnythingLLM on port `3001` in a background phase.
+10. Restores optional S3 RAG cache if enabled.
+11. Auto-indexes PDFs and XLSX workbooks from `PDFS/` into AnythingLLM workspaces.
+12. Starts and configures OpenClaw in a background phase.
+
+The staged startup keeps the pod reachable while heavyweight setup continues:
+
+```bash
+START_BACKGROUND_SERVICES=true
+WAIT_FOR_ANYTHINGLLM_BEFORE_OPENCLAW=false
+START_MODEL_PULL_IN_BACKGROUND=true
+```
+
+Heavy phase logs:
+
+```text
+/tmp/model-pull.log
+/tmp/anythingllm-setup.log
+/tmp/openclaw-setup.log
+```
 
 ## AnythingLLM Access
 
@@ -287,6 +303,16 @@ bash anythingllm_query.sh Nokia "Using cmm_cli_reference_guide.pdf, what command
 For CMM, CMG, Nokia, PDF, XLSX, command, interface, alarm, guide, and reference questions, OpenClaw is instructed to run that helper first, then answer from the returned AnythingLLM response and source metadata. OpenClaw should not answer these from model memory. The helper uses the pod-local AnythingLLM API key at `/tmp/anythingllm-api-key` and must not print or commit it.
 
 Startup also runs an OpenClaw-only Ollama RAG proxy on `127.0.0.1:11437`. OpenClaw is configured to use that proxy as its Ollama base URL. The proxy detects CMM/CMG/Nokia/reference prompts, asks AnythingLLM first, injects the returned RAG answer as mandatory context, and then forwards the request to real Ollama on `127.0.0.1:11434`. AnythingLLM continues to use real Ollama directly, so there is no retrieval loop.
+
+The proxy intentionally injects only concise retrieved context to keep OpenClaw from overflowing `qwen3-coder:30b`:
+
+```bash
+OPENCLAW_RAG_QUERY_TIMEOUT_SECONDS=90
+OPENCLAW_RAG_MAX_CONTEXT_CHARS=4000
+OPENCLAW_RAG_MAX_QUESTION_CHARS=2000
+```
+
+Do not inject full Markdown memory, full PDF text, or full AnythingLLM answers into OpenClaw. AnythingLLM remains the RAG source of truth, and OpenClaw queries it on demand.
 
 ## Manual Sync
 

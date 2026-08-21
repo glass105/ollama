@@ -28,6 +28,9 @@ OPENCLAW_PUBLIC_URL="${OPENCLAW_PUBLIC_URL:-}"
 OPENCLAW_DASHBOARD_URL_FILE="${OPENCLAW_DASHBOARD_URL_FILE:-/tmp/openclaw/dashboard-url}"
 ENABLE_OPENCLAW_RAG_PROXY="${ENABLE_OPENCLAW_RAG_PROXY:-true}"
 OPENCLAW_RAG_PROXY_PORT="${OPENCLAW_RAG_PROXY_PORT:-11437}"
+OPENCLAW_RAG_QUERY_TIMEOUT_SECONDS="${OPENCLAW_RAG_QUERY_TIMEOUT_SECONDS:-90}"
+OPENCLAW_RAG_MAX_CONTEXT_CHARS="${OPENCLAW_RAG_MAX_CONTEXT_CHARS:-4000}"
+OPENCLAW_RAG_MAX_QUESTION_CHARS="${OPENCLAW_RAG_MAX_QUESTION_CHARS:-2000}"
 ENABLE_ANYTHINGLLM="${ENABLE_ANYTHINGLLM:-true}"
 ENABLE_ANYTHINGLLM_PDF_AUTO_INDEX="${ENABLE_ANYTHINGLLM_PDF_AUTO_INDEX:-true}"
 ANYTHINGLLM_DIR="${ANYTHINGLLM_DIR:-/workspace/anything-llm}"
@@ -54,6 +57,9 @@ EQUIPMENT_BRIDGE_HOST="${EQUIPMENT_BRIDGE_HOST:-0.0.0.0}"
 EQUIPMENT_BRIDGE_PORT="${EQUIPMENT_BRIDGE_PORT:-19124}"
 EQUIPMENT_BRIDGE_DIR="${EQUIPMENT_BRIDGE_DIR:-/tmp/equipment-bridge}"
 RUNPOD_READY_EXTRA_PORTS="${RUNPOD_READY_EXTRA_PORTS:-19123 19124}"
+START_BACKGROUND_SERVICES="${START_BACKGROUND_SERVICES:-true}"
+WAIT_FOR_ANYTHINGLLM_BEFORE_OPENCLAW="${WAIT_FOR_ANYTHINGLLM_BEFORE_OPENCLAW:-false}"
+START_MODEL_PULL_IN_BACKGROUND="${START_MODEL_PULL_IN_BACKGROUND:-true}"
 
 log() {
   echo "[start] $*"
@@ -371,22 +377,15 @@ For example, "Can you search the CMG CLI guide?" requires a visible answer about
 EOF
   local anythingllm_tool_rule="/tmp/openclaw-anythingllm-tool-rule.md"
   cat > "$anythingllm_tool_rule" <<'EOF'
-# AnythingLLM RAG Tool
+# AnythingLLM RAG
 
 AnythingLLM is the primary RAG layer for Git-backed PDFs and XLSX files.
 Open WebUI is not part of this setup.
 
-Mandatory retrieval gate:
-For any user question about PDF, XLSX, CMM, CMG, Nokia, commands, interfaces, alarms, guide content, or reference documents, do not answer from model memory or general knowledge. First execute the local AnythingLLM helper:
+For questions about PDF, XLSX, CMM, CMG, Nokia, commands, interfaces, alarms, guides, or reference documents, use the local RAG helper before answering:
+`/workspace/ollama-memory/anythingllm_query.sh Nokia "<question>"`
 
-```bash
-/workspace/ollama-memory/anythingllm_query.sh Nokia "<question>"
-```
-
-Use the helper output as the source of truth. Return the command names and parameters exactly as the helper provides them. Do not invent commands such as `show interface`.
-If the helper fails, say that the AnythingLLM helper failed and include the non-secret error summary; do not make up a fallback answer.
-Do not read LanceDB/vector files directly. Do not print API keys or token files.
-If the user asks whether you can read or search a guide, answer "Yes, through AnythingLLM" and run the helper when a concrete question is present.
+Use the helper result as the source of truth. Do not invent commands. If the helper fails, report the failure briefly. Do not read vector files directly and do not print tokens or API keys.
 
 EOF
   for workspace_file in AGENTS.md SOUL.md HEARTBEAT.md TOOLS.md; do
@@ -576,6 +575,9 @@ start_openclaw_rag_proxy() {
   log "Starting OpenClaw Ollama RAG proxy on 127.0.0.1:$OPENCLAW_RAG_PROXY_PORT."
   pkill -f openclaw_ollama_rag_proxy.py 2>/dev/null || true
   OPENCLAW_RAG_PROXY_PORT="$OPENCLAW_RAG_PROXY_PORT" \
+    OPENCLAW_RAG_QUERY_TIMEOUT_SECONDS="$OPENCLAW_RAG_QUERY_TIMEOUT_SECONDS" \
+    OPENCLAW_RAG_MAX_CONTEXT_CHARS="$OPENCLAW_RAG_MAX_CONTEXT_CHARS" \
+    OPENCLAW_RAG_MAX_QUESTION_CHARS="$OPENCLAW_RAG_MAX_QUESTION_CHARS" \
     OPENCLAW_RAG_PROXY_UPSTREAM="http://127.0.0.1:11434" \
     MEMORY_DIR="$MEMORY_DIR" \
     ANYTHINGLLM_QUERY_HELPER="$MEMORY_DIR/anythingllm_query.sh" \
@@ -1087,10 +1089,75 @@ start_equipment_https_bridge() {
   chmod 600 "$EQUIPMENT_BRIDGE_DIR/server.pid" "$EQUIPMENT_BRIDGE_DIR/server.log"
 }
 
+run_model_pull_phase() {
+  log "Background phase: Ollama model pulls started."
+  pull_model
+  pull_embedding_model || true
+  log "Background phase: Ollama model pulls complete."
+}
+
+run_anythingllm_phase() {
+  log "Background phase: AnythingLLM setup, S3 restore, and document indexing started."
+  ensure_anythingllm || {
+    log "AnythingLLM setup failed. See /tmp/anythingllm-setup.log and ${ANYTHINGLLM_DEPLOY_DIR}/logs/server.log if it started."
+    return 0
+  }
+  restore_rag_cache
+  wait_for_anythingllm || true
+  auto_index_anythingllm_pdfs
+  (
+    sleep "${RAG_S3_SAVE_DELAY_SECONDS:-900}"
+    save_rag_cache
+  ) &
+  log "Background phase: AnythingLLM setup complete; indexing/cache save may still be running."
+}
+
+run_openclaw_phase() {
+  case "$(printf '%s' "$WAIT_FOR_ANYTHINGLLM_BEFORE_OPENCLAW" | tr '[:upper:]' '[:lower:]')" in
+    true|1|yes|y|on) wait_for_anythingllm || true ;;
+  esac
+
+  if ensure_openclaw; then
+    patch_openclaw_visible_no_reply || true
+    start_openclaw_rag_proxy || true
+    configure_openclaw || true
+    start_openclaw_gateway || true
+    log "Background phase: OpenClaw setup complete."
+  else
+    log "OpenClaw is not running. Continuing without OpenClaw gateway."
+  fi
+}
+
+start_background_phases() {
+  mkdir -p /tmp/ollama-startup
+  case "$(printf '%s' "$START_MODEL_PULL_IN_BACKGROUND" | tr '[:upper:]' '[:lower:]')" in
+    true|1|yes|y|on)
+      run_model_pull_phase > /tmp/model-pull.log 2>&1 &
+      echo $! > /tmp/ollama-startup/model-pull-phase.pid
+      ;;
+  esac
+
+  run_anythingllm_phase > /tmp/anythingllm-setup.log 2>&1 &
+  echo $! > /tmp/ollama-startup/anythingllm-phase.pid
+
+  run_openclaw_phase > /tmp/openclaw-setup.log 2>&1 &
+  echo $! > /tmp/ollama-startup/openclaw-phase.pid
+
+  log "Heavy services are starting in the background."
+  log "Model pull log: /tmp/model-pull.log"
+  log "AnythingLLM phase log: /tmp/anythingllm-setup.log"
+  log "OpenClaw phase log: /tmp/openclaw-setup.log"
+}
+
 print_details() {
   cat <<EOF
 
-Disposable RunPod AI pod is starting.
+Disposable RunPod AI pod boot phase is ready.
+
+Heavy background phases:
+  Model pull log: /tmp/model-pull.log
+  AnythingLLM setup/index log: /tmp/anythingllm-setup.log
+  OpenClaw setup log: /tmp/openclaw-setup.log
 
 AnythingLLM:
   http://<RUNPOD_HOST_OR_PROXY>:${ANYTHINGLLM_PUBLIC_PORT}
@@ -1162,27 +1229,29 @@ trap save_rag_cache_on_shutdown INT TERM
 ensure_ollama
 start_ollama
 wait_for_ollama
-pull_model
-pull_embedding_model || true
+if ! {
+  case "$(printf '%s' "$START_BACKGROUND_SERVICES" | tr '[:upper:]' '[:lower:]')" in true|1|yes|y|on) ;;
+    *) false ;;
+  esac &&
+  case "$(printf '%s' "$START_MODEL_PULL_IN_BACKGROUND" | tr '[:upper:]' '[:lower:]')" in true|1|yes|y|on) ;;
+    *) false ;;
+  esac
+}; then
+  pull_model
+  pull_embedding_model || true
+fi
 start_autosync
 prepare_equipment_access
 start_equipment_https_bridge
-ensure_anythingllm > /tmp/anythingllm-setup.log 2>&1 || log "AnythingLLM setup failed. See /tmp/anythingllm-setup.log and ${ANYTHINGLLM_DEPLOY_DIR}/logs/server.log if it started."
-restore_rag_cache
-wait_for_anythingllm || true
-auto_index_anythingllm_pdfs
-(
-  sleep "${RAG_S3_SAVE_DELAY_SECONDS:-900}"
-  save_rag_cache
-) &
-if ensure_openclaw; then
-  patch_openclaw_visible_no_reply || true
-  start_openclaw_rag_proxy || true
-  configure_openclaw || true
-  start_openclaw_gateway || true
-else
-  log "OpenClaw is not running. Continuing without OpenClaw gateway."
-fi
+case "$(printf '%s' "$START_BACKGROUND_SERVICES" | tr '[:upper:]' '[:lower:]')" in
+  true|1|yes|y|on)
+    start_background_phases
+    ;;
+  *)
+    run_anythingllm_phase > /tmp/anythingllm-setup.log 2>&1
+    run_openclaw_phase > /tmp/openclaw-setup.log 2>&1
+    ;;
+esac
 print_details
 
 wait || true
