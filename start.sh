@@ -899,6 +899,40 @@ path.write_text("\n".join(out) + "\n")
 PY
 }
 
+configure_anythingllm_collector_env() {
+  local env_path="$ANYTHINGLLM_DIR/collector/.env"
+  mkdir -p "$(dirname "$env_path")" "$ANYTHINGLLM_STORAGE_DIR"
+  if [ ! -f "$env_path" ] && [ -f "$ANYTHINGLLM_DIR/collector/.env.example" ]; then
+    cp "$ANYTHINGLLM_DIR/collector/.env.example" "$env_path"
+  fi
+  python3 - "$env_path" "$ANYTHINGLLM_STORAGE_DIR" <<'PY'
+from pathlib import Path
+import sys
+
+env_path, storage_dir = sys.argv[1:3]
+path = Path(env_path)
+lines = path.read_text().splitlines() if path.exists() else []
+updates = {
+    "COLLECTOR_PORT": "8888",
+    "STORAGE_DIR": f'"{storage_dir}"',
+}
+seen = set()
+out = []
+for line in lines:
+    key = line.split("=", 1)[0].strip().lstrip("#").strip() if "=" in line else ""
+    if key in updates:
+        if key not in seen:
+            out.append(f"{key}={updates[key]}")
+            seen.add(key)
+        continue
+    out.append(line)
+for key, value in updates.items():
+    if key not in seen:
+        out.append(f"{key}={value}")
+path.write_text("\n".join(out) + "\n")
+PY
+}
+
 configure_anythingllm_workspaces() {
   local db_path="$ANYTHINGLLM_STORAGE_DIR/anythingllm.db"
   if [ ! -f "$db_path" ]; then
@@ -951,6 +985,7 @@ ensure_anythingllm() {
   yarn setup
   configure_anythingllm_env
   configure_anythingllm_frontend_env
+  configure_anythingllm_collector_env
 
   cd "$ANYTHINGLLM_DIR/frontend"
   if [ -f "$ANYTHINGLLM_DIR/frontend/dist/_index.html" ]; then
@@ -985,6 +1020,7 @@ if [ -f "$ANYTHINGLLM_DEPLOY_DIR/collector.pid" ]; then
 fi
 if command -v fuser >/dev/null 2>&1; then
   fuser -k ${ANYTHINGLLM_INTERNAL_PORT}/tcp 2>/dev/null || true
+  fuser -k 8888/tcp 2>/dev/null || true
 else
   pkill -f '/usr/local/bin/node index.js' 2>/dev/null || true
 fi
@@ -997,6 +1033,10 @@ export NODE_ENV=production
 nohup "\$NODE20" index.js > "$ANYTHINGLLM_DEPLOY_DIR/logs/server.log" 2>&1 < /dev/null &
 echo \$! > "$ANYTHINGLLM_DEPLOY_DIR/server.pid"
 cd "$ANYTHINGLLM_DIR/collector"
+set -a
+. "$ANYTHINGLLM_DIR/collector/.env"
+set +a
+export NODE_ENV=production
 nohup "\$NODE20" index.js > "$ANYTHINGLLM_DEPLOY_DIR/logs/collector.log" 2>&1 < /dev/null &
 echo \$! > "$ANYTHINGLLM_DEPLOY_DIR/collector.pid"
 EOF
@@ -1012,7 +1052,8 @@ wait_for_anythingllm() {
 
   log "Waiting for AnythingLLM on http://localhost:$ANYTHINGLLM_PUBLIC_PORT."
   for _ in $(seq 1 180); do
-    if curl -fsS "http://localhost:$ANYTHINGLLM_PUBLIC_PORT/api/ping" >/dev/null 2>&1; then
+    if curl -fsS "http://localhost:$ANYTHINGLLM_PUBLIC_PORT/api/ping" >/dev/null 2>&1 \
+      && curl -fsS "http://127.0.0.1:8888/accepts" >/dev/null 2>&1; then
       log "AnythingLLM is ready."
       return 0
     fi
