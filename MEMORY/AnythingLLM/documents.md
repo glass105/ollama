@@ -10,6 +10,17 @@ Verified update: 2026-08-12 runtime indexed five Git-backed references in the `N
 - `cmm_cli_reference_guide.pdf`
 - `CMM_Alarms.xlsx` (converted to generated Markdown for embedding)
 
+Verified update: 2026-08-25 active Nokia target set:
+
+- `CMG_CLI_Reference_Guide.pdf`
+- `cmm_cli_reference_guide.pdf`
+- `CMM_Alarms.xlsx`
+
+The following files were removed from the active Git-backed RAG set and should not be re-added or indexed unless explicitly requested:
+
+- `PDFS/Nokia/CMG_Configuration_Guide_part_1.pdf`
+- `PDFS/Nokia/CMG_Configuration_Guide_part_2.pdf`
+
 The 2026-08-12 runtime had 1850 total vectors in AnythingLLM after CMM alarm workbook indexing.
 
 Runtime vector databases and extracted JSON files are not committed to Git.
@@ -38,6 +49,5 @@ Use the indexed document titled CMM_Alarms.xlsx.
 ## Reload Source Mapping
 
 - `CMG_CLI_Reference_Guide.pdf` should be reloaded from `PDFS/Nokia/CMG_CLI_Reference_Guide.pdf`.
-- `CMG_Configuration_Guide.pdf` runtime upload maps to the split Git PDFs in `PDFS/Nokia/CMG_Configuration_Guide_part_1.pdf` and `PDFS/Nokia/CMG_Configuration_Guide_part_2.pdf`.
 - `cmm_cli_reference_guide.pdf` should be reloaded from `PDFS/Nokia/cmm_cli_reference_guide.pdf`.
 - `CMM_Alarms.xlsx` should be reloaded from `PDFS/Nokia/CMM_Alarms.xlsx`.

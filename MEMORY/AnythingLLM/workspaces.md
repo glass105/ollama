@@ -24,6 +24,8 @@ Verified 2026-08-10:
 - AnythingLLM should use LanceDB locally on the disposable pod filesystem.
 - The `Nokia` workspace contains both CMG and CMM documents. For CMM questions, constrain the prompt to `cmm_cli_reference_guide.pdf` and/or `CMM_Alarms.xlsx`, or split CMM into its own workspace to reduce cross-document retrieval.
 - Verified 2026-08-12: `CMM_Alarms.xlsx` is indexed as generated Markdown with the title `CMM_Alarms.xlsx`.
+- Verified 2026-08-25: the desired active Nokia workspace excludes the removed CMG configuration guide parts and focuses on the CLI/reference and CMM alarm sources.
+- Pin only the highest-value workspace documents. Pinned documents are considered more aggressively for workspace context and can improve common lookups, but broad or large pinned documents can dilute answers.
 
 ### System Prompt
 

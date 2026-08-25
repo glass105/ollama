@@ -39,6 +39,8 @@ For CMM, CMG, Nokia, PDF, XLSX, command, interface, alarm, guide, or reference q
 
 Startup also runs an OpenClaw-only Ollama RAG proxy on `127.0.0.1:11437`. OpenClaw should use that as its Ollama provider base URL. The proxy injects AnythingLLM RAG output into CMM/CMG/Nokia/reference prompts before forwarding to real Ollama on `127.0.0.1:11434`.
 
+The proxy should keep retrieved context concise. It should not inject full Markdown memory, full PDF text, full workspaces, or raw vector files into OpenClaw prompts. AnythingLLM remains the retrieval authority, and OpenClaw receives only the context needed for the current question.
+
 ## Public Dashboard Helper
 
 Use OpenClaw gateway token auth when using the RunPod proxy. For easier login, startup should write:
@@ -68,3 +70,5 @@ TOKEN="$(cat /tmp/openclaw/gateway-token)"
 openclaw devices list --url ws://127.0.0.1:18789 --token "$TOKEN"
 openclaw devices approve <REQUEST_ID> --url ws://127.0.0.1:18789 --token "$TOKEN"
 ```
+
+For public RunPod browser access, token auth plus the tokenized dashboard URL remains the supported path. Password-only login was not reliable behind the RunPod proxy in the tested OpenClaw version.

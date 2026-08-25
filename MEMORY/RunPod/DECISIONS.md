@@ -38,3 +38,7 @@
 - Startup should use staged background phases by default: bring up Ollama and public readiness endpoints first, print connection details, then run model pulls, AnythingLLM setup/S3 restore/indexing, and OpenClaw setup in background logs.
 - OpenClaw should receive concise AnythingLLM RAG context only on demand. Do not inject full Markdown memory, full PDF text, or large AnythingLLM answers into OpenClaw prompts.
 - The default OpenClaw RAG proxy limits are `OPENCLAW_RAG_QUERY_TIMEOUT_SECONDS=90`, `OPENCLAW_RAG_MAX_CONTEXT_CHARS=4000`, and `OPENCLAW_RAG_MAX_QUESTION_CHARS=2000`.
+- Open WebUI is no longer part of the supported recreate pipeline. Do not add Open WebUI services, ports, config, or verification steps back into future prompts unless explicitly requested.
+- AnythingLLM's document processor/collector is required for uploads and file conversion. Startup must configure the collector with `COLLECTOR_PORT=8888` and `STORAGE_DIR=/workspace/anything-llm/server/storage`, then verify `http://127.0.0.1:8888/accepts`.
+- The active Nokia RAG set should exclude `PDFS/Nokia/CMG_Configuration_Guide_part_1.pdf` and `PDFS/Nokia/CMG_Configuration_Guide_part_2.pdf`. These removed documents should not be re-added or re-indexed by future rebuilds.
+- In AnythingLLM, use document pinning sparingly. Pin only high-value references that should be considered often, such as `cmm_cli_reference_guide.pdf` or `CMM_Alarms.xlsx`; avoid pinning broad large PDFs unless actively needed.

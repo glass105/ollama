@@ -12,9 +12,15 @@ Recommended startup behavior:
    - Chat model: `qwen3-coder:30b`
    - Embedding provider: `ollama`
    - Embedding model: `qwen3-embedding:8b`
+   - Document processor/collector: `http://127.0.0.1:8888`
 4. Create or update the AnythingLLM workspace `Nokia`.
 5. Upload/re-index source documents from `PDFS/Nokia/`.
 6. Treat generated AnythingLLM DB/vector/cache files as disposable runtime state.
+
+Do not re-add or re-index the removed CMG configuration guide split files unless explicitly requested:
+
+- `PDFS/Nokia/CMG_Configuration_Guide_part_1.pdf`
+- `PDFS/Nokia/CMG_Configuration_Guide_part_2.pdf`
 
 Current workspace target:
 

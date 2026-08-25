@@ -23,3 +23,17 @@ This setup deliberately avoids RunPod network storage and persistent RunPod volu
 The current Markdown memory is built by `load_memory.sh` into `/workspace/current_context.md`. This context is not a true model fine-tune. Chat interfaces and agents must include it through their own prompt, tool, RAG, or context layer.
 
 AnythingLLM is the primary browser UI and RAG layer for future pod launches.
+
+## Current Direction
+
+As of 2026-08-25, Open WebUI is intentionally out of the recreate pipeline.
+
+The active stack is:
+
+- Ollama for local model serving.
+- `qwen3-coder:30b` as the default chat/code model.
+- `qwen3-embedding:8b` as the default embedding model.
+- AnythingLLM as the browser UI, workspace manager, and RAG/vector owner.
+- OpenClaw as the agent UI, using an Ollama-compatible RAG proxy that asks AnythingLLM for reference-document context before forwarding to Ollama.
+
+AnythingLLM needs both the main server and the document processor/collector running. The document processor listens on port `8888` inside the pod and powers uploads, file conversion, and accepted-file detection in the AnythingLLM UI.

@@ -33,3 +33,12 @@ Verified 2026-08-12:
 - `PDFS/Nokia/cmm_cli_reference_guide.pdf` is Git-backed and indexed in AnythingLLM workspace `Nokia`.
 - `PDFS/Nokia/CMM_Alarms.xlsx` is Git-backed and indexed in AnythingLLM workspace `Nokia` after conversion to generated Markdown text.
 - The S3 RAG cache was refreshed after CMM PDF and XLSX indexing.
+
+Verified 2026-08-25:
+
+- Open WebUI is not part of the supported pipeline.
+- AnythingLLM is the primary browser UI and RAG owner.
+- AnythingLLM uses Ollama `qwen3-coder:30b` for chat and `qwen3-embedding:8b` for embeddings.
+- The AnythingLLM document processor/collector must run separately from the main server on port `8888`.
+- If the upload panel says "Document Processor Unavailable", check `http://127.0.0.1:8888/accepts` and the collector log before troubleshooting the web UI.
+- The collector needs `STORAGE_DIR=/workspace/anything-llm/server/storage`; without it, the collector can crash before listening.
