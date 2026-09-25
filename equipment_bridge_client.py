@@ -43,6 +43,7 @@ def main() -> int:
     submit.add_argument("device")
     submit.add_argument("operation")
     submit.add_argument("--ttl", type=int, default=300)
+    submit.add_argument("--param", action="append", default=[], metavar="NAME=VALUE")
     status = subparsers.add_parser("status")
     status.add_argument("job_id")
     wait = subparsers.add_parser("wait")
@@ -54,8 +55,19 @@ def main() -> int:
 
     token = args.token_file.read_text(encoding="utf-8").strip()
     if args.action == "submit":
+        parameters = {}
+        for item in args.param:
+            if "=" not in item:
+                raise SystemExit(f"Invalid --param value: {item!r}; expected NAME=VALUE")
+            name, value = item.split("=", 1)
+            if not name or name in parameters:
+                raise SystemExit(f"Invalid or duplicate parameter name: {name!r}")
+            parameters[name] = value
         result = request_json(args.url, token, "/api/jobs", {
-            "device": args.device, "operation": args.operation, "ttlSeconds": args.ttl
+            "device": args.device,
+            "operation": args.operation,
+            "parameters": parameters,
+            "ttlSeconds": args.ttl,
         })
     elif args.action == "status":
         result = request_json(args.url, token, f"/api/jobs/{args.job_id}")

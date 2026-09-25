@@ -19,6 +19,7 @@ This setup deliberately avoids RunPod network storage and persistent RunPod volu
 - Ollama listens on `127.0.0.1:11434`.
 - AnythingLLM listens internally on port `3010` and is exposed through nginx on port `3001`.
 - OpenClaw gateway listens on port `18789`.
+- The equipment command bridge listens on port `19124`. A portable Windows PowerShell worker polls it outbound over HTTPS and executes only locally allowlisted read-only operations.
 
 The current Markdown memory is built by `load_memory.sh` into `/workspace/current_context.md`. This context is not a true model fine-tune. Chat interfaces and agents must include it through their own prompt, tool, RAG, or context layer.
 
@@ -35,5 +36,6 @@ The active stack is:
 - `qwen3-embedding:8b` as the default embedding model.
 - AnythingLLM as the browser UI, workspace manager, and RAG/vector owner.
 - OpenClaw as the agent UI, using an Ollama-compatible RAG proxy that asks AnythingLLM for reference-document context before forwarding to Ollama.
+- A repo-backed OpenClaw `equipment-bridge` skill for approved operations on private equipment through the Windows worker; equipment credentials stay on Windows.
 
 AnythingLLM needs both the main server and the document processor/collector running. The document processor listens on port `8888` inside the pod and powers uploads, file conversion, and accepted-file detection in the AnythingLLM UI.

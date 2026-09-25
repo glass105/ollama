@@ -2,6 +2,10 @@
 .s3-keys
 .ssh/
 .local-secrets/
+equipment_bridge.env
+equipment_worker.env
+equipment.csv
+keys/
 *.log
 .cache/
 __pycache__/

@@ -69,7 +69,7 @@ class JobStore:
         if changed:
             self._save()
 
-    def create(self, device: str, operation: str, ttl_seconds: int) -> dict:
+    def create(self, device: str, operation: str, parameters: dict[str, str], ttl_seconds: int) -> dict:
         with self.lock:
             created = now_epoch()
             job_id = str(uuid.uuid4())
@@ -77,6 +77,7 @@ class JobStore:
                 "id": job_id,
                 "device": device,
                 "operation": operation,
+                "parameters": parameters,
                 "status": "pending",
                 "workerId": None,
                 "createdAt": created,
@@ -237,7 +238,21 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 if not 30 <= ttl_seconds <= 3600:
                     self._json(HTTPStatus.BAD_REQUEST, {"error": "ttlSeconds must be 30..3600"})
                     return
-                job = self.bridge.store.create(device, operation, ttl_seconds)
+                parameters = payload.get("parameters", {})
+                if not isinstance(parameters, dict) or len(parameters) > 16:
+                    self._json(HTTPStatus.BAD_REQUEST, {"error": "parameters must be an object with at most 16 entries"})
+                    return
+                normalized_parameters: dict[str, str] = {}
+                for name, value in parameters.items():
+                    if not NAME_RE.fullmatch(str(name)) or not isinstance(value, (str, int)):
+                        self._json(HTTPStatus.BAD_REQUEST, {"error": "invalid parameter name or value"})
+                        return
+                    text_value = str(value)
+                    if len(text_value) > 256:
+                        self._json(HTTPStatus.BAD_REQUEST, {"error": "parameter value is too long"})
+                        return
+                    normalized_parameters[str(name)] = text_value
+                job = self.bridge.store.create(device, operation, normalized_parameters, ttl_seconds)
                 self._json(HTTPStatus.CREATED, {"job": job})
                 return
 

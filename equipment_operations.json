@@ -4,7 +4,21 @@
     "timeoutSeconds": 60
   },
   "show_alarms": {
-    "command": "show alarms",
+    "command": "show system alarms",
     "timeoutSeconds": 60
+  },
+  "show_pdn_context": {
+    "command": "show mobile-gateway pdn bearer-context",
+    "timeoutSeconds": 60
+  },
+  "show_ue_context": {
+    "command": "show mobile-gateway pdn ue-context imsi {imsi} detail",
+    "timeoutSeconds": 60,
+    "parameters": {
+      "imsi": {
+        "required": true,
+        "pattern": "^[0-9]{5,15}$"
+      }
+    }
   }
 }

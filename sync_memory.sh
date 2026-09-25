@@ -40,6 +40,15 @@ git add README.md \
   anythingllm_query.sh \
   auto_index_anythingllm_pdfs.py \
   openclaw_ollama_rag_proxy.py \
+  openclaw_equipment_tool.py \
+  equipment_bridge_client.py \
+  equipment_https_bridge.py \
+  equipment_bridge_client.ps1 \
+  equipment_worker.ps1 \
+  equipment_operations.json \
+  equipment.csv.example \
+  equipment_bridge.env.example \
+  openclaw-skills/**/*.md \
   query_anythingllm.py \
   restore_rag_cache.sh \
   save_rag_cache.sh \

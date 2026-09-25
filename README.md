@@ -366,28 +366,39 @@ ENABLE_EQUIPMENT_HTTPS_BRIDGE=true
 EQUIPMENT_BRIDGE_PORT=19124
 ```
 
-Startup creates separate client and worker tokens under `/tmp/equipment-bridge` and starts the bridge on `0.0.0.0:19124`. RunPod terminates public HTTPS at:
+Startup requires separate fixed `EQUIPMENT_BRIDGE_CLIENT_TOKEN` and `EQUIPMENT_BRIDGE_WORKER_TOKEN` values, writes them under `/tmp/equipment-bridge`, and starts the bridge on `0.0.0.0:19124`. It fails instead of generating replacement tokens when either value is absent, too short, or identical. Keep the source values in ignored local files such as `secrets/equipment_bridge_client_token.txt` and `secrets/equipment_bridge_worker_token.txt`, and inject those same values into every new pod. RunPod terminates public HTTPS at:
 
 ```text
 https://<POD_ID>-19124.proxy.runpod.net
 ```
 
-After the pod is ready, run `publish_runpod_connections.ps1`. When `19124/http` is present, it writes the ignored `secrets/equipment_worker.env` with the proxy URL and worker-only token. Move these files to the real Windows PC:
+After the pod is ready, run `publish_runpod_connections.ps1`. When `19124/http` is present, it writes the ignored `secrets/equipment_worker.env` with the new pod-specific proxy URL and the unchanged worker token. Only `BRIDGE_URL` changes when a pod is recreated.
+
+For a portable no-install Windows worker, move these files to any folder on the real PC:
 
 ```text
-equipment_worker.ps1
+equipment_bridge_client.ps1
 equipment_operations.json
-secrets/equipment.csv
-secrets/equipment_worker.env
+equipment.csv
+equipment_bridge.env
 ```
 
-Start the worker manually:
+Use the example files as templates:
+
+```text
+equipment.csv.example -> equipment.csv
+equipment_bridge.env.example -> equipment_bridge.env
+```
+
+The portable client looks for `equipment_bridge.env`, `equipment.csv`, and `equipment_operations.json` beside the script. It can run with built-in `ssh.exe` for key-based auth or `plink.exe` for password auth. If `plink.exe` is needed, place it beside the script or set `PLINK_PATH` in `equipment_bridge.env`.
+
+Start the client manually:
 
 ```powershell
-.\equipment_worker.ps1
+powershell -ExecutionPolicy Bypass -File .\equipment_bridge_client.ps1
 ```
 
-It polls outbound over HTTPS, validates device and operation against local allowlists, runs built-in `ssh.exe`, and posts bounded output back over HTTPS. Equipment authentication stays on Windows.
+It polls outbound over HTTPS, validates device and operation against local allowlists, runs only `ssh.exe` or `plink.exe`, and posts bounded output back over HTTPS. Equipment authentication stays on Windows. The older `equipment_worker.ps1` remains as a compatibility wrapper around the portable client.
 
 From the pod/OpenClaw side:
 

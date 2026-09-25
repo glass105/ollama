@@ -72,3 +72,25 @@ openclaw devices approve <REQUEST_ID> --url ws://127.0.0.1:18789 --token "$TOKEN
 ```
 
 For public RunPod browser access, token auth plus the tokenized dashboard URL remains the supported path. Password-only login was not reliable behind the RunPod proxy in the tested OpenClaw version.
+
+## Equipment Command Bridge
+
+OpenClaw accesses private equipment indirectly through the equipment bridge. The pod accepts authenticated jobs on port `19124`; a portable PowerShell worker on the equipment PC polls that HTTPS endpoint and executes only device and operation names present in its local allowlists.
+
+The OpenClaw workspace installs the `equipment-bridge` skill from:
+
+```text
+/workspace/ollama-memory/openclaw-skills/equipment-bridge/SKILL.md
+```
+
+The skill invokes the constrained wrapper:
+
+```bash
+/workspace/ollama-memory/openclaw_equipment_tool.py --device bocsmf01 --operation show_version
+```
+
+Parameterized operations use repeated `--param NAME=VALUE` arguments. The pod bridge preserves the validated parameter object for the Windows worker, which performs the final allowlist and pattern checks before running the command.
+
+OpenClaw must not use its `nodes` tool, direct SSH, or arbitrary user-provided CLI text for equipment requests. Tokens and equipment credentials must never appear in chat output, Git, or S3.
+
+The end-to-end `show_version` test on `bocsmf01` completed successfully through OpenClaw and returned `TiMOS-MG-C-25.7.R2`. The equipment command itself completed in under one second; most observed latency came from the multi-turn `qwen3-coder:30b` agent workflow.

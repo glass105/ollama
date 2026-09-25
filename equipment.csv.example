@@ -1,0 +1,3 @@
+name,address,user,ssh_port,enabled,password_env,key_file
+cmm-lab,10.0.0.10,admin,22,false,CMM_PASSWORD,
+cmm-keyed,10.0.0.11,admin,22,false,,keys\cmm_ed25519

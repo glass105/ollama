@@ -15,3 +15,6 @@
 - Verify on each fresh pod that the AnythingLLM document processor responds at `http://127.0.0.1:8888/accepts`; the upload UI shows "Document Processor Unavailable" when this collector is down or missing `STORAGE_DIR`.
 - After future RAG rebuilds, verify the Nokia workspace indexes only the intended active references and does not re-add removed CMG configuration guide parts.
 - Before shutdown, run the memory sync and S3 RAG cache save so Markdown memory and AnythingLLM vector state are both durable.
+- Keep the real-PC `equipment_operations.json` synchronized with the repository copy, especially operation names, required parameters, and validation patterns.
+- Test parameterized equipment operations with a valid 5-15 digit IMSI after each bridge or worker update.
+- Reduce OpenClaw equipment-command latency by avoiding unnecessary skill-discovery turns while preserving the worker-side device and operation allowlists.
