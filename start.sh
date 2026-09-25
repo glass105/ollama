@@ -455,6 +455,11 @@ configure_openclaw() {
 
   log "Configuring OpenClaw for local Ollama model $OLLAMA_MODEL."
   mkdir -p /root/.openclaw/workspace
+  if [ -d "$MEMORY_DIR/openclaw-skills/equipment-bridge" ]; then
+    mkdir -p /root/.openclaw/workspace/skills
+    rm -rf /root/.openclaw/workspace/skills/equipment-bridge
+    cp -R "$MEMORY_DIR/openclaw-skills/equipment-bridge" /root/.openclaw/workspace/skills/
+  fi
   local visible_reply_rule="/tmp/openclaw-visible-reply-rule.md"
   cat > "$visible_reply_rule" <<'EOF'
 # Disposable RunPod WebChat Visible Reply Rule
@@ -481,12 +486,20 @@ For questions about PDF, XLSX, CMM, CMG, Nokia, commands, interfaces, alarms, gu
 Use the helper result as the source of truth. Do not invent commands. If the helper fails, report the failure briefly. Do not read vector files directly and do not print tokens or API keys.
 
 EOF
+  local equipment_tool_rule="/tmp/openclaw-equipment-tool-rule.md"
+  cat > "$equipment_tool_rule" <<'EOF'
+# Equipment Command Bridge
+
+For explicit requests to run approved read-only operations on named Nokia equipment, use the `equipment-bridge` skill and `/workspace/ollama-memory/openclaw_equipment_tool.py`. The wrapper submits and waits for the result. Do not use the `nodes` tool or direct SSH for these requests.
+
+EOF
   for workspace_file in AGENTS.md SOUL.md HEARTBEAT.md TOOLS.md; do
     local workspace_path="/root/.openclaw/workspace/$workspace_file"
     touch "$workspace_path"
     WORKSPACE_PATH="$workspace_path" \
       VISIBLE_REPLY_RULE="$visible_reply_rule" \
       ANYTHINGLLM_TOOL_RULE="$anythingllm_tool_rule" \
+      EQUIPMENT_TOOL_RULE="$equipment_tool_rule" \
       python3 - <<'PY'
 import os
 import re
@@ -499,6 +512,8 @@ patterns = [
     r"\A# AnythingLLM RAG Tool\n.*?(?=\n# |\Z)",
     r"\n# Disposable RunPod WebChat Visible Reply Rule\n.*?(?=\n# |\Z)",
     r"\n# AnythingLLM RAG Tool\n.*?(?=\n# |\Z)",
+    r"\A# Equipment Command Bridge\n.*?(?=\n# |\Z)",
+    r"\n# Equipment Command Bridge\n.*?(?=\n# |\Z)",
 ]
 for pattern in patterns:
     text = re.sub(pattern, "\n", text, flags=re.S)
@@ -507,6 +522,8 @@ prefix = (
     Path(os.environ["VISIBLE_REPLY_RULE"]).read_text()
     + Path(os.environ["ANYTHINGLLM_TOOL_RULE"]).read_text()
 )
+if path.name == "TOOLS.md":
+    prefix += Path(os.environ["EQUIPMENT_TOOL_RULE"]).read_text()
 path.write_text(prefix + text)
 PY
   done
@@ -1363,6 +1380,7 @@ chmod +x "$MEMORY_DIR/auto_index_anythingllm_pdfs.py" 2>/dev/null || true
 chmod +x "$MEMORY_DIR/query_anythingllm.py" "$MEMORY_DIR/anythingllm_query.sh" 2>/dev/null || true
 chmod +x "$MEMORY_DIR/equipment_access.py" 2>/dev/null || true
 chmod +x "$MEMORY_DIR/equipment_https_bridge.py" "$MEMORY_DIR/equipment_bridge_client.py" 2>/dev/null || true
+chmod +x "$MEMORY_DIR/openclaw_equipment_tool.py" 2>/dev/null || true
 chmod +x "$MEMORY_DIR/stop_equipment_https_bridge.sh" 2>/dev/null || true
 chmod +x "$MEMORY_DIR/openclaw_ollama_rag_proxy.py" 2>/dev/null || true
 chmod +x "$MEMORY_DIR/restore_rag_cache.sh" 2>/dev/null || true
