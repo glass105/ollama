@@ -4,6 +4,7 @@ param(
     [string]$RuntimeFile = "$PSScriptRoot\secrets\last_runpod_runtime.json",
     [string]$OutputFile = "$PSScriptRoot\secrets\pod_connections.json",
     [string]$WorkerEnvironmentFile = "$PSScriptRoot\secrets\equipment_worker.env",
+    [string]$WorkerTokenFile = "$PSScriptRoot\secrets\equipment_bridge_worker_token.txt",
     [string]$EquipmentFile = "$PSScriptRoot\secrets\equipment.csv",
     [string]$EquipmentHelper = "$PSScriptRoot\equipment_access.py",
     [string]$IdentityFile = "$PSScriptRoot\.ssh\ollama_runpod_ed25519",
@@ -202,15 +203,25 @@ $bridgeMappings = @($runtimePorts | Where-Object {
     [int]$_.privatePort -eq 19124 -and [string]$_.type -eq 'http'
 })
 if ($bridgeMappings.Count -eq 1) {
+    if (-not (Test-Path -LiteralPath $WorkerTokenFile -PathType Leaf)) {
+        throw "Stable equipment bridge worker token file not found: $WorkerTokenFile"
+    }
+    $expectedWorkerToken = (Get-Content -LiteralPath $WorkerTokenFile -Raw).Trim()
+    if ($expectedWorkerToken.Length -lt 32) {
+        throw "Stable equipment bridge worker token is missing or shorter than 32 characters: $WorkerTokenFile"
+    }
     $workerToken = (& ssh.exe -o BatchMode=yes -o StrictHostKeyChecking=yes `
         -i $IdentityFile -p $sshPublicPort $target 'cat /tmp/equipment-bridge/worker-token').Trim()
     if ($LASTEXITCODE -ne 0 -or $workerToken.Length -lt 32) {
         throw "Equipment bridge is exposed, but its worker token could not be retrieved."
     }
+    if ($workerToken -cne $expectedWorkerToken) {
+        throw "Pod equipment bridge worker token does not match the stable project-local token. Refusing to publish a rotated credential."
+    }
     $workerUrl = "https://$($runtime.id)-19124.proxy.runpod.net"
     @(
         "BRIDGE_URL=$workerUrl"
-        "BRIDGE_TOKEN=$workerToken"
+        "BRIDGE_TOKEN=$expectedWorkerToken"
         "WORKER_ID=equipment-pc-01"
         "POLL_SECONDS=5"
     ) | Set-Content -LiteralPath $WorkerEnvironmentFile -Encoding ascii

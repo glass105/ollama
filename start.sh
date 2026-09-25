@@ -73,6 +73,34 @@ log() {
   echo "[start] $*"
 }
 
+validate_equipment_bridge_tokens() {
+  case "$(printf '%s' "$ENABLE_EQUIPMENT_HTTPS_BRIDGE" | tr '[:upper:]' '[:lower:]')" in
+    true|1|yes|y|on) ;;
+    *) return 0 ;;
+  esac
+
+  if [ -z "${EQUIPMENT_BRIDGE_CLIENT_TOKEN:-}" ]; then
+    log "ERROR: ENABLE_EQUIPMENT_HTTPS_BRIDGE=true requires the fixed EQUIPMENT_BRIDGE_CLIENT_TOKEN pod environment variable."
+    return 1
+  fi
+  if [ -z "${EQUIPMENT_BRIDGE_WORKER_TOKEN:-}" ]; then
+    log "ERROR: ENABLE_EQUIPMENT_HTTPS_BRIDGE=true requires the fixed EQUIPMENT_BRIDGE_WORKER_TOKEN pod environment variable."
+    return 1
+  fi
+  if [ "${#EQUIPMENT_BRIDGE_CLIENT_TOKEN}" -lt 32 ]; then
+    log "ERROR: EQUIPMENT_BRIDGE_CLIENT_TOKEN must contain at least 32 characters."
+    return 1
+  fi
+  if [ "${#EQUIPMENT_BRIDGE_WORKER_TOKEN}" -lt 32 ]; then
+    log "ERROR: EQUIPMENT_BRIDGE_WORKER_TOKEN must contain at least 32 characters."
+    return 1
+  fi
+  if [ "$EQUIPMENT_BRIDGE_CLIENT_TOKEN" = "$EQUIPMENT_BRIDGE_WORKER_TOKEN" ]; then
+    log "ERROR: Equipment bridge client and worker tokens must be different."
+    return 1
+  fi
+}
+
 wait_for_apt_locks() {
   command -v fuser >/dev/null 2>&1 || return 0
 
@@ -1177,16 +1205,8 @@ start_equipment_https_bridge() {
 
   local client_token_file="$EQUIPMENT_BRIDGE_DIR/client-token"
   local worker_token_file="$EQUIPMENT_BRIDGE_DIR/worker-token"
-  if [ -n "${EQUIPMENT_BRIDGE_CLIENT_TOKEN:-}" ]; then
-    printf '%s\n' "$EQUIPMENT_BRIDGE_CLIENT_TOKEN" > "$client_token_file"
-  elif [ ! -s "$client_token_file" ]; then
-    openssl rand -hex 32 > "$client_token_file"
-  fi
-  if [ -n "${EQUIPMENT_BRIDGE_WORKER_TOKEN:-}" ]; then
-    printf '%s\n' "$EQUIPMENT_BRIDGE_WORKER_TOKEN" > "$worker_token_file"
-  elif [ ! -s "$worker_token_file" ]; then
-    openssl rand -hex 32 > "$worker_token_file"
-  fi
+  printf '%s\n' "$EQUIPMENT_BRIDGE_CLIENT_TOKEN" > "$client_token_file"
+  printf '%s\n' "$EQUIPMENT_BRIDGE_WORKER_TOKEN" > "$worker_token_file"
   chmod 600 "$client_token_file" "$worker_token_file"
 
   if [ -s "$EQUIPMENT_BRIDGE_DIR/server.pid" ]; then
@@ -1334,6 +1354,7 @@ if [ "${START_ONLY_ANYTHINGLLM:-false}" = "true" ]; then
   exit 0
 fi
 
+validate_equipment_bridge_tokens
 install_packages
 start_startup_http_placeholders
 ensure_repo

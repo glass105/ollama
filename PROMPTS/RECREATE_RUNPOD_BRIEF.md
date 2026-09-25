@@ -57,7 +57,7 @@ Create pod:
 
 Use qwen3-coder:30b as the default model.
 
-Set env for Ollama, AnythingLLM, OpenClaw, the OpenClaw-only Ollama RAG proxy on port 11437, the opt-in equipment HTTPS bridge (`ENABLE_EQUIPMENT_HTTPS_BRIDGE=true`, port 19124), Git-backed Markdown memory, PDF/XLSX auto-indexing, and optional S3 RAG-cache restore/upload. Use generated token auth for both OpenClaw and the equipment bridge; save tokens only in local ignored files and pod `/tmp` paths, and never commit them.
+Set env for Ollama, AnythingLLM, OpenClaw, the OpenClaw-only Ollama RAG proxy on port 11437, the opt-in equipment HTTPS bridge (`ENABLE_EQUIPMENT_HTTPS_BRIDGE=true`, port 19124), Git-backed Markdown memory, PDF/XLSX auto-indexing, and optional S3 RAG-cache restore/upload. Generate the OpenClaw token locally. Reuse the existing equipment bridge tokens from the ignored local files `C:\Users\joerc\OneDrive\Documents\ollama\secrets\equipment_bridge_client_token.txt` and `C:\Users\joerc\OneDrive\Documents\ollama\secrets\equipment_bridge_worker_token.txt`; trim surrounding whitespace and pass them unchanged as `EQUIPMENT_BRIDGE_CLIENT_TOKEN` and `EQUIPMENT_BRIDGE_WORKER_TOKEN` pod environment variables. Never regenerate or rotate either bridge token. Stop before pod creation if either value is missing, empty, shorter than 32 characters, or identical to the other. Save tokens only in local ignored files and pod `/tmp` paths, and never commit them.
 
 Use the staged startup defaults:
 - `START_BACKGROUND_SERVICES=true`
@@ -86,6 +86,7 @@ Verify:
 - AnythingLLM uses Ollama/qwen3-coder:30b
 - OpenClaw uses the RAG proxy at `127.0.0.1:11437`
 - `https://<POD_ID>-19124.proxy.runpod.net/health` returns the equipment bridge health response
+- the pod worker-token hash matches the normalized SHA-256 of the local `equipment_bridge_worker_token.txt` value without printing the token
 - PDF/RAG state is restored from S3 cache or rebuilt/incrementally indexed from PDFs/XLSX files
 - `bash /workspace/ollama-memory/anythingllm_query.sh Nokia "What can you answer from the CMM guide?"` returns an AnythingLLM RAG answer
 

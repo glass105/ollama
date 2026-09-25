@@ -64,7 +64,11 @@ Use staged startup:
 - OPENCLAW_RAG_MAX_CONTEXT_CHARS=4000
 - OPENCLAW_RAG_MAX_QUESTION_CHARS=2000
 
-Generate OpenClaw and bridge tokens locally. Save secrets only in ignored local files and pod /tmp paths. Never commit secrets.
+Generate the OpenClaw token locally. For the equipment bridge, reuse these existing project-local ignored secrets on every pod creation:
+- `EQUIPMENT_BRIDGE_CLIENT_TOKEN` from `C:\Users\joerc\OneDrive\Documents\ollama\secrets\equipment_bridge_client_token.txt`
+- `EQUIPMENT_BRIDGE_WORKER_TOKEN` from `C:\Users\joerc\OneDrive\Documents\ollama\secrets\equipment_bridge_worker_token.txt`
+
+Read each value, trim surrounding whitespace, and pass it unchanged as a pod environment variable. Never regenerate or rotate either equipment bridge token. If either file is missing, empty, shorter than 32 characters, or the two values are identical, stop before creating the pod. Save secrets only in ignored local files and pod `/tmp` paths. Never commit secrets.
 
 Startup command:
 cd /workspace && git clone https://github.com/glass105/ollama.git ollama-memory || true && cd /workspace/ollama-memory && git pull && chmod +x start.sh load_memory.sh sync_memory.sh autosync_memory.sh restore_rag_cache.sh save_rag_cache.sh auto_index_anythingllm_pdfs.py query_anythingllm.py anythingllm_query.sh openclaw_ollama_rag_proxy.py equipment_https_bridge.py equipment_bridge_client.py stop_equipment_https_bridge.sh && bash start.sh
@@ -81,6 +85,7 @@ Verify:
 - `bash /workspace/ollama-memory/anythingllm_query.sh Nokia "What command lists all CMM interfaces?"` returns a RAG-grounded answer
 - OpenClaw responds on port 18789
 - OpenClaw uses the RAG proxy at 127.0.0.1:11437
+- the pod worker-token hash matches the normalized SHA-256 of the local `equipment_bridge_worker_token.txt` value without printing the token
 
 Final output:
 - Pod ID
