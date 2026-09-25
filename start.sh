@@ -24,6 +24,9 @@ OPENCLAW_GATEWAY_BIND="${OPENCLAW_GATEWAY_BIND:-loopback}"
 OPENCLAW_GATEWAY_AUTH="${OPENCLAW_GATEWAY_AUTH:-token}"
 OPENCLAW_ALLOWED_ORIGINS="${OPENCLAW_ALLOWED_ORIGINS:-}"
 OPENCLAW_ALLOW_HOST_HEADER_ORIGIN_FALLBACK="${OPENCLAW_ALLOW_HOST_HEADER_ORIGIN_FALLBACK:-false}"
+OPENCLAW_TRUSTED_PROXIES="${OPENCLAW_TRUSTED_PROXIES:-}"
+RUNPOD_PROXY_TRUST_CIDR="${RUNPOD_PROXY_TRUST_CIDR:-100.64.1.0/24}"
+OPENCLAW_INSTALL_ATTEMPTS="${OPENCLAW_INSTALL_ATTEMPTS:-3}"
 OPENCLAW_PUBLIC_URL="${OPENCLAW_PUBLIC_URL:-}"
 OPENCLAW_DASHBOARD_URL_FILE="${OPENCLAW_DASHBOARD_URL_FILE:-/tmp/openclaw/dashboard-url}"
 ENABLE_OPENCLAW_RAG_PROXY="${ENABLE_OPENCLAW_RAG_PROXY:-true}"
@@ -60,6 +63,11 @@ RUNPOD_READY_EXTRA_PORTS="${RUNPOD_READY_EXTRA_PORTS:-19123 19124}"
 START_BACKGROUND_SERVICES="${START_BACKGROUND_SERVICES:-true}"
 WAIT_FOR_ANYTHINGLLM_BEFORE_OPENCLAW="${WAIT_FOR_ANYTHINGLLM_BEFORE_OPENCLAW:-false}"
 START_MODEL_PULL_IN_BACKGROUND="${START_MODEL_PULL_IN_BACKGROUND:-true}"
+
+if [ -z "$OPENCLAW_TRUSTED_PROXIES" ] \
+  && [ -n "${RUNPOD_POD_ID:-${RUNPOD_PODID:-${POD_ID:-}}}" ]; then
+  OPENCLAW_TRUSTED_PROXIES="$RUNPOD_PROXY_TRUST_CIDR"
+fi
 
 log() {
   echo "[start] $*"
@@ -340,6 +348,35 @@ ensure_openclaw() {
   }
 }
 
+ensure_openclaw_with_retry() {
+  case "$(printf '%s' "$ENABLE_OPENCLAW" | tr '[:upper:]' '[:lower:]')" in
+    true|1|yes|y) ;;
+    *)
+      log "Skipping OpenClaw install because ENABLE_OPENCLAW=$ENABLE_OPENCLAW."
+      return 1
+      ;;
+  esac
+
+  local attempts="$OPENCLAW_INSTALL_ATTEMPTS"
+  if ! [[ "$attempts" =~ ^[1-9][0-9]*$ ]]; then
+    attempts=3
+  fi
+
+  local attempt
+  for attempt in $(seq 1 "$attempts"); do
+    wait_for_apt_locks
+    if ensure_openclaw; then
+      return 0
+    fi
+    if [ "$attempt" -lt "$attempts" ]; then
+      log "OpenClaw install attempt $attempt/$attempts failed; waiting before retry."
+      sleep 10
+    fi
+  done
+
+  return 1
+}
+
 patch_openclaw_visible_no_reply() {
   if ! command -v python3 >/dev/null 2>&1; then
     return 0
@@ -473,6 +510,15 @@ PY
     )"
   fi
 
+  local trusted_proxies_json="[]"
+  if [ -n "$OPENCLAW_TRUSTED_PROXIES" ]; then
+    trusted_proxies_json="$(
+      printf '%s' "$OPENCLAW_TRUSTED_PROXIES" | "$(
+        command -v python3 >/dev/null 2>&1 && printf python3 || printf python
+      )" -c 'import json,sys; print(json.dumps([x.strip() for x in sys.stdin.read().split(",") if x.strip()]))'
+    )"
+  fi
+
   cat > /tmp/openclaw-ollama.patch.json <<EOF
 {
   "gateway": {
@@ -482,6 +528,7 @@ PY
     "auth": {
       "mode": "$OPENCLAW_GATEWAY_AUTH"
     },
+    "trustedProxies": $trusted_proxies_json,
     "controlUi": {
       "allowedOrigins": $allowed_origins_json,
       "dangerouslyAllowHostHeaderOriginFallback": $OPENCLAW_ALLOW_HOST_HEADER_ORIGIN_FALLBACK
@@ -514,9 +561,6 @@ PY
   },
   "agents": {
     "defaults": {
-      "compaction": {
-        "reserveTokensFloor": 24000
-      },
       "model": {
         "primary": "ollama/$OLLAMA_MODEL"
       }
@@ -1191,13 +1235,11 @@ run_anythingllm_phase() {
 }
 
 run_openclaw_phase() {
-  wait_for_apt_locks
-
   case "$(printf '%s' "$WAIT_FOR_ANYTHINGLLM_BEFORE_OPENCLAW" | tr '[:upper:]' '[:lower:]')" in
     true|1|yes|y|on) wait_for_anythingllm || true ;;
   esac
 
-  if ensure_openclaw; then
+  if ensure_openclaw_with_retry; then
     patch_openclaw_visible_no_reply || true
     start_openclaw_rag_proxy || true
     configure_openclaw || true
