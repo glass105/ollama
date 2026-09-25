@@ -45,6 +45,7 @@ git add README.md \
   equipment_https_bridge.py \
   equipment_bridge_client.ps1 \
   equipment_worker.ps1 \
+  approve_openclaw_device.ps1 \
   equipment_operations.json \
   equipment.csv.example \
   equipment_bridge.env.example \

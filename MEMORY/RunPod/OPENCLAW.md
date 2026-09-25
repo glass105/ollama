@@ -71,6 +71,12 @@ openclaw devices list --url ws://127.0.0.1:18789 --token "$TOKEN"
 openclaw devices approve <REQUEST_ID> --url ws://127.0.0.1:18789 --token "$TOKEN"
 ```
 
+From the project directory, the portable helper reads the current ignored `secrets/pod_connections.json`, connects with the project-local SSH key, and uses the gateway token inside the pod without copying it into the command line:
+
+```powershell
+.\approve_openclaw_device.ps1
+```
+
 For public RunPod browser access, token auth plus the tokenized dashboard URL remains the supported path. Password-only login was not reliable behind the RunPod proxy in the tested OpenClaw version.
 
 ## Equipment Command Bridge
